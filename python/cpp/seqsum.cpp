@@ -62,7 +62,7 @@
 // Then, it "parses" the JSON by skipping everything and creating a big list
 // of ints, which it can process for the challenge.
 // Finally, it writes the final array by writing out a final list of ints.
-// 
+//
 // Our local benchmark tool shows, for different sizes of problems:
 // track 10,    queries 10:     1.75ms  3.00pts
 // track 100,   queries 100:    1.78ms  3.00pts
@@ -104,15 +104,34 @@
 
 #include "challenge.h"
 #include "measure.h"
-#include "http.h"
+#include "server.h"
 
 #include <iostream>
 #include <string>
+#include <unistd.h>
 
 
 extern "C" {
     // Launches our "HTTP" server, waiting to solve challenges.
     void launch(int port) {
+        int servfd = http_server(port);
+        if (servfd < 0) {
+          exit(1);
+        }
+
+        for (;;) {
+          int sockfd = accept_client(servfd);
+          if (sockfd < 0) {
+            if (errno == EINTR) {
+              break;
+            } else {
+              continue;
+            }
+          }
+          reply_ping(sockfd);
+          close(sockfd);
+        }
+        /*
         HttpServer server{port};
         std::cout << "Listening on " << port << "..." << std::endl;
         while (true) {
@@ -130,5 +149,6 @@ extern "C" {
             }
             server.close_conn();
         }
+        */
     }
 }

@@ -54,17 +54,15 @@ int accept_client(int servfd) {
   memset(&addr, 0, sizeof(addr));
   addr.sin_family = AF_INET;
   socklen_t addrlen = 0;
+
   int sockfd = accept(servfd, (struct sockaddr*)&addr, &addrlen);
-  if (sockfd < 0) {
-    fprintf(stderr, "Failed to accept client\n");
-    return -1;
+  if (sockfd >= 0) {
+    printf("Client connected %s\n", inet_ntoa(addr.sin_addr));
+
+    int on = 1;
+    // Make sure CORK is on, NODELAY should be inherited, but CORK is unclear
+    setsockopt(sockfd, SOL_TCP, TCP_CORK, &on, sizeof(int));
   }
-
-  printf("Client connected %s:%d\n", inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
-
-  int on = 1;
-  // Make sure CORK is on, NODELAY should be inherited, but CORK is unclear
-  setsockopt(sockfd, SOL_TCP, TCP_CORK, &on, sizeof(int));
 
   return sockfd;
 }
@@ -76,4 +74,10 @@ void sflush(int sockfd) {
   setsockopt(sockfd, SOL_TCP, TCP_CORK, &off, sizeof(int));
   int on = 1;
   setsockopt(sockfd, SOL_TCP, TCP_CORK, &on, sizeof(int));
+}
+
+void reply_ping(int sockfd) {
+  const char reply[] = "HTTP/1.1 204 OK\r\nContent-Type: text/plain\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+  write(sockfd, reply, sizeof(reply) - 1);
+  sflush(sockfd);
 }
