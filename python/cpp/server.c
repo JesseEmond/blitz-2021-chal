@@ -77,7 +77,7 @@ void sflush(int sockfd) {
 }
 
 void reply_ping(int sockfd) {
-  const char reply[] = "HTTP/1.1 204 OK\r\nContent-Type: text/plain\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+  const char reply[] = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
   write(sockfd, reply, sizeof(reply) - 1);
   sflush(sockfd);
 }
