@@ -1,5 +1,5 @@
+*.o
+*.so
 __pycache__
 default.profdata
 default.profraw
-*.o
-*.so

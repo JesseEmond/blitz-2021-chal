@@ -1,17 +1,20 @@
 #!/bin/bash
 set -e
 cd cpp
-echo "Compiling..."
 
-options='-c -g -Wall -fPIC -Ofast -std=c++17 -DNDEBUG'
+CPPFLAGS='-c -g -Wall -fPIC -Ofast -DNDEBUG'
+CXXFLAGS='-std=c++17'
+LDFLAGS='-Wl,-O1,--sort-common,--as-needed,-z,relro,-z,now'
 
 # use this to generate/use a PGO profile file
-#all_options='-fprofile-instr-generate'
+#CPPFLAGS="$CPPFLAGS -fprofile-instr-generate"
 # Post-processed with:
 # llvm-profdata-10 merge --output cpp/default.profdata default.profraw
-#all_options='-fprofile-instr-use'
+#CPPFLAGS="$CPPFLAGS -fprofile-instr-use"
 
-clang++ $all_options $options seqsum.cpp -o seqsum.o
+echo "Compiling..."
+clang++ $CPPFLAGS $CXXFLAGS seqsum.cpp -o seqsum.o
+clang $CPPFLAGS $CFLAGS server.c -o server.o
 
 echo "Linking..."
-clang++ -g $all_options -shared -Wl,-soname,libseqsum.o -o libseqsum.so seqsum.o
+clang++ -shared $LDFLAGS -o libseqsum.so seqsum.o server.o
