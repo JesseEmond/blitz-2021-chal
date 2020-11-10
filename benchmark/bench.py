@@ -27,7 +27,7 @@ def slow_solve(challenge):
 
 
 def benchmark(verify):
-    with open('../python_wip/testcases.txt') as f:
+    with open('./testcases.txt') as f:
         lines = [line.strip() for line in f.readlines() if 'items' in line]
         lines = [line[2:-1] if line.startswith('b\'') else line for line in lines]
     all_challenges = [json.loads(line.replace('\'', '"')) for line in lines]
