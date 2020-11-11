@@ -139,14 +139,12 @@ extern "C" {
                     ssize_t len = 0;
                     char *buf = NULL;
                     if ((len = recv_challenge(sockfd, &buf)) > 0) {
-                        send_response_headers(sockfd);
                         std::string_view chal(buf, static_cast<std::string_view::size_type>(len));
                         std::string_view sln;
                         measure("end2end::solve", [&] {
                             sln = seqsum(chal);
                         });
-                        send_response_chunk(sockfd, sln.data(), sln.size());
-                        send_response_chunk(sockfd, NULL, 0);
+                        send_response(sockfd, sln.data(), sln.size());
                         free(buf);
                     } else {
                         keep_alive = false;
