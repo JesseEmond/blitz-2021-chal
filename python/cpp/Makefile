@@ -1,26 +1,37 @@
-CC=clang
-CXX=clang++
+CC = clang
+CXX = clang++
+LD = clang++
 
-CFLAGS=-g -Wall -fPIC -Ofast -DNDEBUG
-CXXFLAGS=$(CFLAGS) -std=c++17
-LDFLAGS=-shared
+CFLAGS = -g -Wall -fPIC -Ofast -DNDEBUG
+CCFLAGS = $(CFLAGS)
+CXXFLAGS = $(CFLAGS) -std=c++17
+LDFLAGS = -shared
 
 # use this to generate/use a PGO profile file
-#PROFFLAGS=-fprofile-instr-generate
+#PROFFLAGS = -fprofile-instr-generate
 # Post-processed with:
 # llvm-profdata-10 merge --output cpp/default.profdata default.profraw
-#PROFFLAGS=-fprofile-instr-use
+#PROFFLAGS = -fprofile-instr-use
 
-all: libseqsum.so
+SRCS = \
+	cson.c \
+	seqsum.cpp \
+	server.c
+
+OBJS = $(SRCS:%=%.o)
+
+TARGET = libseqsum.so
+
+all: $(TARGET)
 
 clean:
-	rm -f *.o *.so
+	rm -f $(TARGET) $(OBJS)
 
-libseqsum.so: seqsum.o server.o
-	$(CXX) -o $@ $(LDFLAGS) $(PROFFLAGS) $^
+$(TARGET): $(OBJS)
+	$(LD) $(LDFLAGS) $(PROFFLAGS) $^ -o $@
 
-seqsum.o: seqsum.cpp
-	$(CXX) -c $(CPPFLAGS) $(CXXFLAGS) $(PROFFLAGS) -o $@ $<
+%.c.o: %.c
+	$(CC) $(CCFLAGS) $(PROFFLAGS) -c $< -o $@
 
-server.o: server.c
-	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(PROFFLAGS) -o $@ $<
+%.cpp.o: %.cpp
+	$(CXX) $(CXXFLAGS) $(PROFFLAGS) -c $< -o $@

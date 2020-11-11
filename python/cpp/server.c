@@ -1,12 +1,13 @@
 #include "server.h"
 
 #include <arpa/inet.h>
-#include <errno.h>
 #include <netinet/tcp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
+#include "cson.h"
 
 
 int http_server(const int port) {
@@ -115,8 +116,8 @@ ssize_t recv_challenge(const int sockfd, char **data) {
         return 0;
     }
 
-    // Handle the liveness check immediately
-    if (strncmp("GET", buf, 3) == 0) {
+    // Assume GET, handle the liveness check immediately
+    if (buf[0] == 'G') {
         send_pong(sockfd);
         return 0;
     }
@@ -124,7 +125,7 @@ ssize_t recv_challenge(const int sockfd, char **data) {
     // Assume challenge request starting here
 
     // Quickly check for a POST to make sure we can expect a body
-    if (strncmp("POST", buf, 4) != 0) {
+    if (buf[0] != 'P') {
         send_bad_request(sockfd);
         return 0;
     }
@@ -135,8 +136,15 @@ ssize_t recv_challenge(const int sockfd, char **data) {
         n = recvline(sockfd, buf, sizeof(buf));
         if (n <= 0) {
             return 0;
-        } else if (n > 14 && strncmp("Content-Length", buf, 14) == 0) {
-            datalen = atoi(buf + 16);
+        } else if (n > 14 && buf[0] == 'C' && buf[7] == '-' && buf[8] == 'L') {
+            // DIY atoi skipping leading non-digits and stopping at first non-digit
+            char *b = buf + 15; // Skip the "C-L:" part to jump to value
+            char c = *b;
+            for (; b - buf < n && (c < '0' || c > '9'); c = *(++b));
+            for (; b - buf < n && c >= '0' && c <= '9'; c = *(++b)) {
+                datalen *= 10;
+                datalen += c - '0';
+            }
         } else if (n == 2) {
             break;
         }
@@ -147,7 +155,8 @@ ssize_t recv_challenge(const int sockfd, char **data) {
     }
 
     char *d = *data = malloc(datalen + 1);
-    // TODO Pushdown to ChallengeSON parser
+    cson_t cson;
+    cson_init(&cson);
     while (datalen > 0) {
         n = recv(sockfd, d, datalen, 0);
         if (n < 0) {
@@ -155,6 +164,7 @@ ssize_t recv_challenge(const int sockfd, char **data) {
             send_bad_request(sockfd);
             return 0;
         } else {
+            cson_update(&cson, d, n);
             datalen -= n;
             d += n;
         }
