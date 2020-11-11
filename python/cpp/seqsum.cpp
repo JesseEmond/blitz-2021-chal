@@ -99,7 +99,7 @@
 
 // Enable this #define to get profiling numbers from the C++ program itself, where measured.
 // Show profile timers every N calls.
-#define PROFILE_OUTPUT_N 500
+//#define PROFILE_OUTPUT_N 500
 
 
 #include "challenge.h"
