@@ -106,29 +106,35 @@ ssize_t recvline(const int sockfd, char *buf, const size_t len) {
 
 ssize_t recv_challenge(const int sockfd, char **data) {
     // NOTE: Welcome to Assumption-Land(tm)
-    // Also, GOTO count 4, enjoy
 
     // Deal with the request line
     ssize_t n = 0;
     char buf[512];
     n = recvline(sockfd, buf, sizeof(buf));
     if (n <= 0) {
-        goto gtfo;
+        return 0;
     }
+
+    // Handle the liveness check immediately
     if (strncmp("GET", buf, 3) == 0) {
-        // Handle liveness check
         send_pong(sockfd);
         return 0;
     }
 
     // Assume challenge request starting here
 
+    // Quickly check for a POST to make sure we can expect a body
+    if (strncmp("POST", buf, 4) != 0) {
+        send_bad_request(sockfd);
+        return 0;
+    }
+
     // Consume headers and "parse" the Content-Length
     ssize_t datalen = 0;
     for (;;) {
         n = recvline(sockfd, buf, sizeof(buf));
         if (n <= 0) {
-            break;
+            return 0;
         } else if (n > 14 && strncmp("Content-Length", buf, 14) == 0) {
             datalen = atoi(buf + 16);
         } else if (n == 2) {
@@ -136,22 +142,25 @@ ssize_t recv_challenge(const int sockfd, char **data) {
         }
     }
     if (datalen <= 0 || datalen > 10 * 1024 * 1024 /* 10MB */) {
-      goto gtfo;
+        send_bad_request(sockfd);
+        return 0;
     }
 
-    *data = malloc(datalen + 1);
-    // TODO Read by 8k chunks and stream to pushdown ChallengeSON parser
-    n = recv(sockfd, *data, datalen, 0);
-    if (n != datalen) {
-      free(*data);
-      goto gtfo;
+    char *d = *data = malloc(datalen + 1);
+    // TODO Pushdown to ChallengeSON parser
+    while (datalen > 0) {
+        n = recv(sockfd, d, datalen, 0);
+        if (n < 0) {
+            free(*data);
+            send_bad_request(sockfd);
+            return 0;
+        } else {
+            datalen -= n;
+            d += n;
+        }
     }
-    (*data)[datalen] = '\0';
-    return datalen;
-
-gtfo:
-    send_bad_request(sockfd);
-    return 0;
+    *d = '\0';
+    return d - *data;
 }
 
 int send_response(const int sockfd, const char *data, const size_t len) {
@@ -163,7 +172,6 @@ int send_response(const int sockfd, const char *data, const size_t len) {
     if (send(sockfd, headers, n, 0) < 0) {
         return -1;
     }
-    sflush(sockfd);
     if (send(sockfd, data, len, 0) < 0) {
         return -1;
     }

@@ -107,7 +107,6 @@
 #include "server.h"
 
 #include <iostream>
-#include <string>
 #include <unistd.h>
 #include <string_view>
 
@@ -132,10 +131,12 @@ extern "C" {
                 }
             }
 
+            // TODO: Can we just fork() here? Are requests sent in parallel?
+
             bool keep_alive = true;
             while (keep_alive) {
                 measure("end2end", [&] {
-                    size_t len = 0;
+                    ssize_t len = 0;
                     char *buf = NULL;
                     if ((len = recv_challenge(sockfd, &buf)) > 0) {
                         std::string_view chal(buf, static_cast<std::string_view::size_type>(len));
@@ -153,24 +154,5 @@ extern "C" {
 
             close(sockfd);
         }
-        /*
-        HttpServer server{port};
-        std::cout << "Listening on " << port << "..." << std::endl;
-        while (true) {
-            if (server.wait_for_client()) {
-                measure("end2end", [&] {
-                    std::string_view challenge = server.read_chal();
-
-                    std::string_view sln;
-                    measure("end2end::solve", [&] {
-                        sln = seqsum(challenge);
-                    });
-
-                    server.send_content(sln);
-                });
-            }
-            server.close_conn();
-        }
-        */
     }
 }
