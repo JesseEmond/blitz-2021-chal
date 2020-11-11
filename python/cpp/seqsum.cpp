@@ -150,9 +150,17 @@ extern "C" {
                         keep_alive = false;
                     }
                 });
+#ifdef DISABLE_KEEP_ALIVE
+                keep_alive = false;
+#endif
             }
 
             close(sockfd);
         }
+    }
+
+    int main(int argc, char** argv) {
+        launch(27178);
+        return 0;
     }
 }
