@@ -1,83 +1,172 @@
 #include "server.h"
 
 #include <arpa/inet.h>
-#include <stdio.h>
-#include <string.h>
+#include <errno.h>
 #include <netinet/tcp.h>
-#include <sys/socket.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
-int http_server(int port) {
-  int servfd = socket(AF_INET, SOCK_STREAM, 0);
-  if (servfd < 0) {
-    fprintf(stderr, "Failed to create socket\n");
-    return -1;
-  }
 
-  int on = 1;
-  // Try to re-use port if already bound
-  setsockopt(servfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(int));
-  // Disable Nagle's algorithm, do not wait for ACK to send
-  setsockopt(servfd, SOL_TCP, TCP_NODELAY, &on, sizeof(int));
-  // Allow us to decide when to send partial frames by buffering until uncorked
-  setsockopt(servfd, SOL_TCP, TCP_CORK, &on, sizeof(int));
-  // "Accept" client connection only on first packet, aka first request
-  setsockopt(servfd, SOL_TCP, TCP_DEFER_ACCEPT, &on, sizeof(int));
-  // Send ACKs fast (tm)
-  setsockopt(servfd, SOL_TCP, TCP_QUICKACK, &on, sizeof(int));
-
-  struct sockaddr_in addr;
-  memset(&addr, 0, sizeof(addr));
-  addr.sin_family = AF_INET;
-  addr.sin_port = htons(port);
-  addr.sin_addr.s_addr = htonl(INADDR_ANY);
-
-  if (bind(servfd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-    close(servfd);
-    fprintf(stderr, "Failed to bind to %s:%d\n", inet_ntoa(addr.sin_addr), port);
-    return -1;
-  }
-
-  if (listen(servfd, 10) < 0) {
-    close(servfd);
-    fprintf(stderr, "Failed to listen to %s:%d\n", inet_ntoa(addr.sin_addr), port);
-    return -1;
-  }
-
-  printf("Listening on %s:%d\n", inet_ntoa(addr.sin_addr), port);
-
-  return servfd;
-}
-
-int accept_client(int servfd) {
-  struct sockaddr_in addr;
-  memset(&addr, 0, sizeof(addr));
-  addr.sin_family = AF_INET;
-  socklen_t addrlen = 0;
-
-  int sockfd = accept(servfd, (struct sockaddr*)&addr, &addrlen);
-  if (sockfd >= 0) {
-    printf("Client connected %s\n", inet_ntoa(addr.sin_addr));
+int http_server(const int port) {
+    int servfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (servfd < 0) {
+        return -1;
+    }
 
     int on = 1;
+    // Try to re-use port if already bound
+    setsockopt(servfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(int));
+    // Disable Nagle's algorithm, do not wait for ACK to send
+    setsockopt(servfd, SOL_TCP, TCP_NODELAY, &on, sizeof(int));
+    // Allow us to decide when to send partial frames by buffering until uncorked
+    setsockopt(servfd, SOL_TCP, TCP_CORK, &on, sizeof(int));
+    // "Accept" client connection only on first packet, aka first request
+    setsockopt(servfd, SOL_TCP, TCP_DEFER_ACCEPT, &on, sizeof(int));
+    // Send ACKs fast (tm)
+    setsockopt(servfd, SOL_TCP, TCP_QUICKACK, &on, sizeof(int));
+
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+    if (bind(servfd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        close(servfd);
+        return -1;
+    }
+
+    if (listen(servfd, 10) < 0) {
+        close(servfd);
+        return -1;
+    }
+
+
+    return servfd;
+}
+
+int accept_client(const int servfd) {
+    int sockfd = accept(servfd, NULL, NULL);
+    if (sockfd < 0) {
+        return -1;
+    }
+
+    const int on = 1;
     // Make sure CORK is on, NODELAY should be inherited, but CORK is unclear
     setsockopt(sockfd, SOL_TCP, TCP_CORK, &on, sizeof(int));
-  }
 
-  return sockfd;
+    return sockfd;
 }
 
-void sflush(int sockfd) {
-  // Because we have NODELAY, toggling CORK will force flush any partial frame
-  // in the kernel net buffer.
-  int off = 0;
-  setsockopt(sockfd, SOL_TCP, TCP_CORK, &off, sizeof(int));
-  int on = 1;
-  setsockopt(sockfd, SOL_TCP, TCP_CORK, &on, sizeof(int));
+void sflush(const int sockfd) {
+    // Because we have NODELAY, toggling CORK will force flush any partial
+    // frame in the kernel net buffer.
+    const int off = 0;
+    setsockopt(sockfd, SOL_TCP, TCP_CORK, &off, sizeof(int));
+    const int on = 1;
+    setsockopt(sockfd, SOL_TCP, TCP_CORK, &on, sizeof(int));
 }
 
-void reply_ping(int sockfd) {
-  const char reply[] = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
-  write(sockfd, reply, sizeof(reply) - 1);
-  sflush(sockfd);
+void send_pong(const int sockfd) {
+    // Canned empty OK reply
+    const char reply[] = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+    send(sockfd, reply, sizeof(reply) - 1, 0);
+    sflush(sockfd);
+}
+
+void send_bad_request(const int sockfd) {
+    // Canned  Bad Request reply
+    const char reply[] = "HTTP/1.1 400 Bad Request\r\nContent-Type: text/plain\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+    send(sockfd, reply, sizeof(reply) - 1, 0);
+    sflush(sockfd);
+}
+
+ssize_t recvline(const int sockfd, char *buf, const size_t len) {
+    char c = 0;
+    int i = 0;
+    while (i < len - 1) {
+        int n = recv(sockfd, &c, 1, 0);
+        if (n < 0) {
+            return -1;
+        } else if (n > 0) {
+            buf[i] = c;
+            ++i;
+            if (c == '\n') {
+                break;
+            }
+        } else {
+            break;
+        }
+    }
+    buf[i] = '\0';
+    return i;
+}
+
+ssize_t recv_challenge(const int sockfd, char **data) {
+    // NOTE: Welcome to Assumption-Land(tm)
+    // Also, GOTO count 4, enjoy
+
+    // Deal with the request line
+    ssize_t n = 0;
+    char buf[512];
+    n = recvline(sockfd, buf, sizeof(buf));
+    if (n <= 0) {
+        goto gtfo;
+    }
+    if (strncmp("GET", buf, 3) == 0) {
+        // Handle liveness check
+        send_pong(sockfd);
+        return 0;
+    }
+
+    // Assume challenge request starting here
+
+    // Consume headers and "parse" the Content-Length
+    ssize_t datalen = 0;
+    for (;;) {
+        n = recvline(sockfd, buf, sizeof(buf));
+        if (n <= 0) {
+            break;
+        } else if (n > 14 && strncmp("Content-Length", buf, 14) == 0) {
+            datalen = atoi(buf + 16);
+        } else if (n == 2) {
+            break;
+        }
+    }
+    if (datalen <= 0 || datalen > 10 * 1024 * 1024 /* 10MB */) {
+      goto gtfo;
+    }
+
+    *data = malloc(datalen + 1);
+    // TODO Read by 8k chunks and stream to pushdown ChallengeSON parser
+    n = recv(sockfd, *data, datalen, 0);
+    if (n != datalen) {
+      free(*data);
+      goto gtfo;
+    }
+    (*data)[datalen] = '\0';
+    return datalen;
+
+gtfo:
+    send_bad_request(sockfd);
+    return 0;
+}
+
+int send_response(const int sockfd, const char *data, const size_t len) {
+    char headers[512];
+    int n = sprintf(headers, "HTTP/1.1 200 OK\r\nConnection: keep-alive\r\nContent-Type: application/json\r\nContent-Length: %ld\r\n\r\n", len);
+    if (n < 0) {
+        return -1;
+    }
+    if (send(sockfd, headers, n, 0) < 0) {
+        return -1;
+    }
+    sflush(sockfd);
+    if (send(sockfd, data, len, 0) < 0) {
+        return -1;
+    }
+    sflush(sockfd);
+    return 0;
 }

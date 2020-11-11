@@ -109,6 +109,7 @@
 #include <iostream>
 #include <string>
 #include <unistd.h>
+#include <string_view>
 
 
 extern "C" {
@@ -116,20 +117,41 @@ extern "C" {
     void launch(int port) {
         int servfd = http_server(port);
         if (servfd < 0) {
-          exit(1);
+            std::cerr << "Failed to bind to port " << port << std::endl;
+            exit(1);
         }
+        std::cout << "Listening on port " << port << std::endl;
 
-        for (;;) {
-          int sockfd = accept_client(servfd);
-          if (sockfd < 0) {
-            if (errno == EINTR) {
-              break;
-            } else {
-              continue;
+        while (true) {
+            int sockfd = accept_client(servfd);
+            if (sockfd < 0) {
+                if (errno == EINTR) {
+                    break;
+                } else {
+                    continue;
+                }
             }
-          }
-          reply_ping(sockfd);
-          close(sockfd);
+
+            bool keep_alive = true;
+            while (keep_alive) {
+                measure("end2end", [&] {
+                    size_t len = 0;
+                    char *buf = NULL;
+                    if ((len = recv_challenge(sockfd, &buf)) > 0) {
+                        std::string_view chal(buf, static_cast<std::string_view::size_type>(len));
+                        std::string_view sln;
+                        measure("end2end::solve", [&] {
+                            sln = seqsum(chal);
+                        });
+                        send_response(sockfd, sln.data(), sln.size());
+                        free(buf);
+                    } else {
+                        keep_alive = false;
+                    }
+                });
+            }
+
+            close(sockfd);
         }
         /*
         HttpServer server{port};
