@@ -178,3 +178,35 @@ int send_response(const int sockfd, const char *data, const size_t len) {
     sflush(sockfd);
     return 0;
 }
+
+int send_response_headers(const int sockfd) {
+    const char headers[] = "HTTP/1.1 200 OK\r\nConnection: keep-alive\r\nContent-Type: application/json\r\nTransfer-Encoding: chunked\r\n\r\n";
+    if (send(sockfd, headers, sizeof(headers) - 1, 0) < 0) {
+        return -1;
+    }
+    sflush(sockfd);
+    return 0;
+}
+
+int send_response_chunk(const int sockfd, const char *data, const size_t len) {
+    if (len <= 0) {
+        send(sockfd, "0\r\n\r\n", 5, 0);
+    } else {
+        char chunk_size[64];
+        int n = sprintf(chunk_size, "%lX\r\n", len);
+        if (n < 0) {
+            return -1;
+        }
+        if (send(sockfd, chunk_size, n, 0) < 0) {
+            return -1;
+        }
+        if (send(sockfd, data, len, 0) < 0) {
+            return -1;
+        }
+        if (send(sockfd, "\r\n", 2, 0) < 0) {
+            return -1;
+        }
+    }
+    sflush(sockfd);
+    return 0;
+}
