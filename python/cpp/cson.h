@@ -10,8 +10,6 @@ extern "C" {
 typedef enum cson_state {
     // Initital state
     parsing_none,
-    // Inside "
-    parsing_string,
     // Saw 'i', wait for [
     parsing_items_pre,
     // Saw [ after 'i'

@@ -105,6 +105,7 @@
 #include "challenge.h"
 #include "measure.h"
 #include "server.h"
+#include "cson.h"
 
 #include <iostream>
 #include <unistd.h>
@@ -133,19 +134,21 @@ extern "C" {
 
             // TODO: Can we just fork() here? Are requests sent in parallel?
 
+            cson_t cson;
             bool keep_alive = true;
             while (keep_alive) {
                 measure("end2end", [&] {
-                    ssize_t len = 0;
-                    char *buf = NULL;
-                    if ((len = recv_challenge(sockfd, &buf)) > 0) {
+                    if (recv_challenge(sockfd, &cson) >= 0) {
+                        /*
                         std::string_view chal(buf, static_cast<std::string_view::size_type>(len));
                         std::string_view sln;
                         measure("end2end::solve", [&] {
                             sln = seqsum(chal);
                         });
                         send_response(sockfd, sln.data(), sln.size());
-                        free(buf);
+                        */
+                        send_response(sockfd, "", 0);
+                        cson_free(&cson);
                     } else {
                         keep_alive = false;
                     }

@@ -105,7 +105,7 @@ ssize_t recvline(const int sockfd, char *buf, const size_t len) {
     return i;
 }
 
-ssize_t recv_challenge(const int sockfd, char **data) {
+int recv_challenge(const int sockfd, cson_t *cson) {
     // NOTE: Welcome to Assumption-Land(tm)
 
     // Deal with the request line
@@ -113,13 +113,13 @@ ssize_t recv_challenge(const int sockfd, char **data) {
     char buf[512];
     n = recvline(sockfd, buf, sizeof(buf));
     if (n <= 0) {
-        return 0;
+        return -1;
     }
 
     // Assume GET, handle the liveness check immediately
     if (buf[0] == 'G') {
         send_pong(sockfd);
-        return 0;
+        return -1;
     }
 
     // Assume challenge request starting here
@@ -127,7 +127,7 @@ ssize_t recv_challenge(const int sockfd, char **data) {
     // Quickly check for a POST to make sure we can expect a body
     if (buf[0] != 'P') {
         send_bad_request(sockfd);
-        return 0;
+        return -1;
     }
 
     // Consume headers and "parse" the Content-Length
@@ -135,7 +135,7 @@ ssize_t recv_challenge(const int sockfd, char **data) {
     for (;;) {
         n = recvline(sockfd, buf, sizeof(buf));
         if (n <= 0) {
-            return 0;
+            return -1;
         } else if (n > 14 && buf[0] == 'C' && buf[7] == '-' && buf[8] == 'L') {
             // DIY atoi skipping leading non-digits and stopping at first non-digit
             char *b = buf + 15; // Skip the "C-L:" part to jump to value
@@ -151,26 +151,23 @@ ssize_t recv_challenge(const int sockfd, char **data) {
     }
     if (datalen <= 0 || datalen > 10 * 1024 * 1024 /* 10MB */) {
         send_bad_request(sockfd);
-        return 0;
+        return -1;
     }
 
-    char *d = *data = malloc(datalen + 1);
-    cson_t cson;
-    cson_init(&cson);
+    cson_init(cson);
     while (datalen > 0) {
-        n = recv(sockfd, d, datalen, 0);
+        char chunk[2 * 1024];
+        n = recv(sockfd, chunk, datalen < sizeof(chunk) ? datalen : sizeof(chunk), 0);
         if (n < 0) {
-            free(*data);
             send_bad_request(sockfd);
-            return 0;
+            cson_free(cson);
+            return -1;
         } else {
-            cson_update(&cson, d, n);
+            cson_update(cson, chunk, n);
             datalen -= n;
-            d += n;
         }
     }
-    *d = '\0';
-    return d - *data;
+    return 0;
 }
 
 int send_response(const int sockfd, const char *data, const size_t len) {
