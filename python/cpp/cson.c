@@ -6,10 +6,15 @@
 
 void cson_init(cson_t *cson) {
     cson->state = parsing_none;
-    cson->items = NULL;
+    if ((cson->items = malloc(200000 * sizeof(unsigned int))) == NULL) {
+        exit(1);
+    }
     cson->items_size = 0;
-    cson->track = NULL;
-    cson->track_size = 0;
+    if ((cson->track = malloc(10001 * sizeof(unsigned int))) == NULL) {
+        exit(1);
+    }
+    cson->track[0] = 0;
+    cson->track_size = 1;
     cson->_partial = 0;
 }
 
@@ -51,18 +56,12 @@ size_t cson_seek_array_start(cson_t *cson, const char *data, const size_t offset
     return i;
 }
 
-size_t cson_seek_array_end(cson_t *cson, const char *data, const size_t offset, const size_t len, cson_state_t next_state, int *found) {
-    if (found != NULL) {
-        *found = 0;
-    }
+size_t cson_seek_array_end(cson_t *cson, const char *data, const size_t offset, const size_t len, cson_state_t next_state) {
     size_t i = offset;
     for (; i < len; ++i) {
         char c = data[i];
         if (c == ']') {
             cson->state = next_state;
-            if (found != NULL) {
-                *found = 1;
-            }
             ++i;
             break;
         } else if (c != ' ' && c != ',' && c != '\r' && c != '\n' && c != '\t') {
@@ -111,17 +110,12 @@ void cson_update(cson_t *cson, const char *data, const size_t len) {
                 offset = cson_seek_key(cson, data, offset, len);
                 break;
             case parsing_items_pre:
-                offset = cson_seek_array_start(cson, data, offset, len, parsing_items, &flag);
-                if (flag) {
-                    if ((cson->items = malloc(200000 * sizeof(unsigned int))) == NULL) {
-                        exit(1);
-                    }
-                }
+                offset = cson_seek_array_start(cson, data, offset, len, parsing_items, NULL);
                 break;
             case parsing_items:
                 offset = cson_seek_array_start(cson, data, offset, len, parsing_items_pair, &flag);
                 if (!flag && offset < len) {
-                    offset = cson_seek_array_end(cson, data, offset, len, parsing_none, NULL);
+                    offset = cson_seek_array_end(cson, data, offset, len, parsing_none);
                 }
                 break;
             case parsing_items_pair:
@@ -138,17 +132,12 @@ void cson_update(cson_t *cson, const char *data, const size_t len) {
                         cson->_partial = value;
                     }
                 } else {
-                    o = cson_seek_array_end(cson, data, o, len, parsing_items, NULL);
+                    o = cson_seek_array_end(cson, data, o, len, parsing_items);
                 }
                 offset = o;
                 break;
             case parsing_track_pre:
-                offset = cson_seek_array_start(cson, data, offset, len, parsing_track, &flag);
-                if (flag) {
-                    if ((cson->track = malloc(10001 * sizeof(unsigned int))) == NULL) {
-                        exit(1);
-                    }
-                }
+                offset = cson_seek_array_start(cson, data, offset, len, parsing_track, NULL);
                 break;
             case parsing_track:
                 o = cson_parse_uint(data, offset, len, &value, &d);
@@ -164,7 +153,7 @@ void cson_update(cson_t *cson, const char *data, const size_t len) {
                         cson->_partial = value;
                     }
                 } else {
-                    o = cson_seek_array_end(cson, data, o, len, parsing_none, NULL);
+                    o = cson_seek_array_end(cson, data, o, len, parsing_none);
                 }
                 offset = o;
                 break;
@@ -176,9 +165,11 @@ void cson_free(cson_t *cson) {
     if (cson != NULL) {
         if (cson->items != NULL) {
             free(cson->items);
+            cson->items = NULL;
         }
         if (cson->track != NULL) {
             free(cson->track);
+            cson->track = NULL;
         }
     }
 }
