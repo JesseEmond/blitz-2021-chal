@@ -138,24 +138,17 @@ extern "C" {
             bool keep_alive = true;
             while (keep_alive) {
                 measure("end2end", [&] {
-                    if (recv_challenge(sockfd, &cson) >= 0) {
-                        /*
-                        std::string_view chal(buf, static_cast<std::string_view::size_type>(len));
-                        std::string_view sln;
-                        measure("end2end::solve", [&] {
-                            sln = seqsum(chal);
-                        });
-                        send_response(sockfd, sln.data(), sln.size());
-                        */
-                        send_response(sockfd, "", 0);
-                        cson_free(&cson);
-                    } else {
+                    if (recv_challenge(sockfd, &cson) < 0) {
                         keep_alive = false;
+                        return;
                     }
+                    std::string_view sln;
+                    measure("end2end::solve", [&] {
+                        sln = seqsum(&cson);
+                    });
+                    send_response(sockfd, sln.data(), sln.size());
+                    cson_free(&cson);
                 });
-#ifdef DISABLE_KEEP_ALIVE
-                keep_alive = false;
-#endif
             }
 
             close(sockfd);

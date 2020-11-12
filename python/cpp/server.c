@@ -156,7 +156,7 @@ int recv_challenge(const int sockfd, cson_t *cson) {
 
     cson_init(cson);
     while (datalen > 0) {
-        char chunk[2 * 1024];
+        char chunk[4 * 1024];
         n = recv(sockfd, chunk, datalen < sizeof(chunk) ? datalen : sizeof(chunk), 0);
         if (n < 0) {
             send_bad_request(sockfd);

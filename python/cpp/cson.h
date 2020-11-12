@@ -24,10 +24,10 @@ typedef enum cson_state {
 
 typedef struct cson {
     cson_state_t state;
-    unsigned int *track;
-    size_t track_size;
-    unsigned int *items;
+    unsigned int items[100000 * 2];
     size_t items_size;
+    unsigned int track[10000 + 1];
+    size_t track_size;
     unsigned int _partial;
 } cson_t;
 
