@@ -3,7 +3,6 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <string.h>
 
 
 void cson_init(cson_t *cson) {
@@ -85,29 +84,29 @@ size_t cson_parse_uint(cson_t *cson, const char *data, const size_t offset, cons
         break;
     }
 
+    // Adapted weird dark magic from
+    // https://kholdstare.github.io/technical/2020/05/26/faster-integer-parsing.html
+    // TODO Check for SIMD darker magic
+    // http://0x80.pl/articles/simd-parsing-int-sequences.html#precalculating-data
+
     size_t i = o;
-    // TODO Unroll this
+    uint64_t x = 0;
     for (; i < len; ++i) {
         char c = data[i];
         if (c < '0' || c > '9') {
             break;
         }
+        x = (x >> 8) | (((uint64_t) c) << 56);
     }
 
     size_t l = i - o;
-    if (l > 0) {
-        if (l > sizeof(uint64_t)) {
-            // Unhandled lol
-            exit(1);
-        }
-        // Adapted weird dark magic from
-        // https://kholdstare.github.io/technical/2020/05/26/faster-integer-parsing.html
-        uint64_t x = 0;
-        memcpy(((void*)&x) + (sizeof(uint64_t) - l), data + o, l);
+    if (l == 1) {
+        v = v * pow10[l] + ((x >> 56) & 0xf);
+    } else if (l > 0) {
         x = ((x & 0x0f000f000f000f00) >> 8) + ((x & 0x000f000f000f000f) * 10);
         x = ((x & 0x00ff000000ff0000) >> 16) + ((x & 0x000000ff000000ff) * 100);
         x = ((x & 0x0000ffff00000000) >> 32) + ((x & 0x000000000000ffff) * 10000);
-        v = v != 0 ? v * pow10[l] + (unsigned int)x : (unsigned int)x;
+        v = v * pow10[l] + (unsigned int) x;
     }
 
     if (i == len) {
