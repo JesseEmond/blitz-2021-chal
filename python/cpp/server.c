@@ -8,15 +8,17 @@
 #include <unistd.h>
 
 #include "cson.h"
+#include "expect.h"
+#include "parsing.h"
 
 
 int http_server(const int port) {
-    int servfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (servfd < 0) {
+    const int servfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (unlikely(servfd < 0)) {
         return -1;
     }
 
-    int on = 1;
+    const int on = 1;
     // Try to re-use port if already bound
     setsockopt(servfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(int));
     // Disable Nagle's algorithm, do not wait for ACK to send
@@ -34,23 +36,22 @@ int http_server(const int port) {
     addr.sin_port = htons(port);
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
-    if (bind(servfd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+    if (unlikely(bind(servfd, (struct sockaddr*)&addr, sizeof(addr)) < 0)) {
         close(servfd);
         return -1;
     }
 
-    if (listen(servfd, 10) < 0) {
+    if (unlikely(listen(servfd, 10) < 0)) {
         close(servfd);
         return -1;
     }
-
 
     return servfd;
 }
 
 int accept_client(const int servfd) {
-    int sockfd = accept(servfd, NULL, NULL);
-    if (sockfd < 0) {
+    const int sockfd = accept(servfd, NULL, NULL);
+    if (unlikely(sockfd < 0)) {
         return -1;
     }
 
@@ -84,17 +85,17 @@ void send_bad_request(const int sockfd) {
     sflush(sockfd);
 }
 
+// TODO: This is shitty, we can parse in the data buffer and realloc to save on recv's
 ssize_t recvline(const int sockfd, char *buf, const size_t len) {
-    char c = 0;
-    int i = 0;
+    char c;
+    size_t i = 0;
     while (i < len - 1) {
-        int n = recv(sockfd, &c, 1, 0);
-        if (n < 0) {
+        ssize_t n = recv(sockfd, &c, 1, 0);
+        if (unlikely(n < 0)) {
             return -1;
-        } else if (n > 0) {
-            buf[i] = c;
-            ++i;
-            if (c == '\n') {
+        }
+        if (likely(n > 0)) {
+            if ((buf[i++] = c) == '\n') {
                 break;
             }
         } else {
@@ -110,14 +111,13 @@ int recv_challenge(const int sockfd, cson_t *cson) {
 
     // Deal with the request line
     ssize_t n = 0;
-    char buf[512];
-    n = recvline(sockfd, buf, sizeof(buf));
-    if (n <= 0) {
+    char buf[1024];
+    if (unlikely((n = recvline(sockfd, buf, sizeof(buf))) <= 0)) {
         return -1;
     }
 
     // Assume GET, handle the liveness check immediately
-    if (buf[0] == 'G') {
+    if (unlikely(buf[0] == 'G')) {
         send_pong(sockfd);
         return -1;
     }
@@ -125,61 +125,62 @@ int recv_challenge(const int sockfd, cson_t *cson) {
     // Assume challenge request starting here
 
     // Quickly check for a POST to make sure we can expect a body
-    if (buf[0] != 'P') {
+    if (unlikely(buf[0] != 'P')) {
         send_bad_request(sockfd);
         return -1;
     }
 
     // Consume headers and "parse" the Content-Length
-    ssize_t datalen = 0;
+    size_t datalen = 0;
     for (;;) {
-        n = recvline(sockfd, buf, sizeof(buf));
-        if (n <= 0) {
+        if ((n = recvline(sockfd, buf, sizeof(buf))) <= 0) {
             return -1;
-        } else if (n > 14 && buf[0] == 'C' && buf[7] == '-' && buf[8] == 'L') {
-            // DIY atoi skipping leading non-digits and stopping at first non-digit
+        }
+        if (n > 14 && buf[0] == 'C' && buf[7] == '-' && buf[8] == 'L') {
             char *b = buf + 15; // Skip the "C-L:" part to jump to value
-            char c = *b;
-            for (; b - buf < n && (c < '0' || c > '9'); c = *(++b));
-            for (; b - buf < n && c >= '0' && c <= '9'; c = *(++b)) {
-                datalen *= 10;
-                datalen += c - '0';
-            }
-        } else if (n == 2) {
+            for (char c = *b; b - buf < n && (c < '0' || c > '9'); c = *(++b));
+            fast_atoi(b, n - (b - buf), (unsigned int*) &datalen);
+        } else if (n == 2 && buf[0] == '\r' && buf[1] == '\n') {
             break;
         }
     }
-    if (datalen <= 0 || datalen > 10 * 1024 * 1024 /* 10MB */) {
+    if (unlikely(datalen <= 0 || datalen > 10 * 1024 * 1024 /* 10MB */)) {
         send_bad_request(sockfd);
         return -1;
     }
 
     cson_init(cson);
+    char* data = malloc(datalen);
+    if (unlikely(data == NULL)) {
+        exit(1);
+    }
+    char* p = data;
     while (datalen > 0) {
-        char chunk[4 * 1024];
-        n = recv(sockfd, chunk, datalen < sizeof(chunk) ? datalen : sizeof(chunk), 0);
-        if (n < 0) {
+        const size_t chunk_size = 2 * 1024;
+        if (unlikely((n = recv(sockfd, p, datalen < chunk_size ? datalen : chunk_size, 0)) < 0)) {
             send_bad_request(sockfd);
             cson_free(cson);
+            free(data);
             return -1;
-        } else {
-            cson_update(cson, chunk, n);
-            datalen -= n;
         }
+        cson_update(cson, p, n);
+        datalen -= n;
+        p += n;
     }
+    free(data);
     return 0;
 }
 
 int send_response(const int sockfd, const char *data, const size_t len) {
     char headers[512];
-    int n = sprintf(headers, "HTTP/1.1 200 OK\r\nConnection: keep-alive\r\nContent-Type: application/json\r\nContent-Length: %ld\r\n\r\n", len);
-    if (n < 0) {
+    ssize_t n = sprintf(headers, "HTTP/1.1 200 OK\r\nConnection: keep-alive\r\nContent-Type: application/json\r\nContent-Length: %ld\r\n\r\n", len);
+    if (unlikely(n < 0)) {
         return -1;
     }
-    if (send(sockfd, headers, n, 0) < 0) {
+    if (unlikely(send(sockfd, headers, n, 0) < 0)) {
         return -1;
     }
-    if (send(sockfd, data, len, 0) < 0) {
+    if (unlikely(send(sockfd, data, len, 0) < 0)) {
         return -1;
     }
     sflush(sockfd);
@@ -188,7 +189,7 @@ int send_response(const int sockfd, const char *data, const size_t len) {
 
 int send_response_headers(const int sockfd) {
     const char headers[] = "HTTP/1.1 200 OK\r\nConnection: keep-alive\r\nContent-Type: application/json\r\nTransfer-Encoding: chunked\r\n\r\n";
-    if (send(sockfd, headers, sizeof(headers) - 1, 0) < 0) {
+    if (unlikely(send(sockfd, headers, sizeof(headers) - 1, 0) < 0)) {
         return -1;
     }
     sflush(sockfd);
@@ -196,21 +197,21 @@ int send_response_headers(const int sockfd) {
 }
 
 int send_response_chunk(const int sockfd, const char *data, const size_t len) {
-    if (len <= 0) {
+    if (unlikely(len == 0)) {
         send(sockfd, "0\r\n\r\n", 5, 0);
     } else {
         char chunk_size[64];
-        int n = sprintf(chunk_size, "%lX\r\n", len);
-        if (n < 0) {
+        ssize_t n = sprintf(chunk_size, "%lX\r\n", len);
+        if (unlikely(n < 0)) {
             return -1;
         }
-        if (send(sockfd, chunk_size, n, 0) < 0) {
+        if (unlikely(send(sockfd, chunk_size, n, 0) < 0)) {
             return -1;
         }
-        if (send(sockfd, data, len, 0) < 0) {
+        if (unlikely(send(sockfd, data, len, 0) < 0)) {
             return -1;
         }
-        if (send(sockfd, "\r\n", 2, 0) < 0) {
+        if (unlikely(send(sockfd, "\r\n", 2, 0) < 0)) {
             return -1;
         }
     }

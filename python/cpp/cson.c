@@ -1,8 +1,11 @@
 #include "cson.h"
 
 #include <stddef.h>
-#include <stdint.h>
 #include <stdlib.h>
+
+#include "expect.h"
+#include "parsing.h"
+#include "prof.h"
 
 
 void cson_init(cson_t *cson) {
@@ -20,12 +23,10 @@ size_t cson_seek_key(cson_t *cson, const char *data, const size_t offset, const 
         char c = data[i];
         if (c == 'i') {
             cson->state = parsing_items_pre;
-            i += 5; // Skip the string content immediately
-            break;
+            return i + 5; // Skip the string content immediately
         } else if (c == 't') {
             cson->state = parsing_track_pre;
-            i += 5; // Skip the string content immediately
-            break;
+            return i + 5; // Skip the string content immediately
         }
     }
     return i;
@@ -43,8 +44,7 @@ size_t cson_seek_array_start(cson_t *cson, const char *data, const size_t offset
             if (found != NULL) {
                 *found = 1;
             }
-            ++i;
-            break;
+            return i + 1;
         } else if (c == ']') {
             break;
         }
@@ -56,14 +56,12 @@ size_t cson_seek_array_end(cson_t *cson, const char *data, const size_t offset, 
     size_t i = offset;
     for (; i < len; ++i) {
         char c = data[i];
-        if (c == ' ' || c == '\r' || c == '\n' || c == '\t') {
-            continue;
-        } else if (c == ']') {
+        if (c == ']') {
             cson->state = next_state;
-            ++i;
+            return i + 1;
+        } else if (c != ' ' && c != '\n' && c != '\r' && c != '\t') {
             break;
         }
-        break;
     }
     return i;
 }
@@ -71,6 +69,7 @@ size_t cson_seek_array_end(cson_t *cson, const char *data, const size_t offset, 
 // FIXME This is 50% of the time apparently
 size_t cson_parse_uint(cson_t *cson, const char *data, const size_t offset, const size_t len, unsigned int *value, int *found) {
     static unsigned int pow10[] = {1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000};
+    //PROF_START();
 
     unsigned int v = cson->_partial;
 
@@ -78,58 +77,38 @@ size_t cson_parse_uint(cson_t *cson, const char *data, const size_t offset, cons
     size_t o = offset;
     for (; o < len; ++o) {
         char c = data[o];
-        if (c == ' ' || (c == ',' && v == 0) || c == '\r' || c == '\n' || c == '\t') {
-            continue;
-        }
-        break;
-    }
-
-    // Adapted weird dark magic from
-    // https://kholdstare.github.io/technical/2020/05/26/faster-integer-parsing.html
-    // TODO Check for SIMD darker magic
-    // http://0x80.pl/articles/simd-parsing-int-sequences.html#precalculating-data
-
-    size_t i = o;
-    uint64_t x = 0;
-    for (; i < len; ++i) {
-        char c = data[i];
-        if (c < '0' || c > '9') {
+        if (c == ',') {
+            if (unlikely(v != 0)) {
+                break;
+            }
+        } else if (c != ' ' && c != '\n' && c != '\r' && c != '\t') {
             break;
         }
-        x = (x >> 8) | (((uint64_t) c) << 56);
     }
 
-    size_t l = i - o;
-    if (l == 1) {
-        v = v * pow10[l] + ((x >> 56) & 0xf);
-    } else if (l > 0) {
-        x = ((x & 0x0f000f000f000f00) >> 8) + ((x & 0x000f000f000f000f) * 10);
-        x = ((x & 0x00ff000000ff0000) >> 16) + ((x & 0x000000ff000000ff) * 100);
-        x = ((x & 0x0000ffff00000000) >> 32) + ((x & 0x000000000000ffff) * 10000);
-        v = v * pow10[l] + (unsigned int) x;
-    }
-
-    if (i == len) {
+    unsigned int x = 0;
+    size_t l = fast_atoi(data + o, len - o, &x);
+    *value = v = v * pow10[l] + x;
+    if (unlikely(o + l == len)) {
         // On input edge, save partial run for later
         cson->_partial = v;
-        if (l > 0 && v == 0) {
+        if (unlikely(l > 0 && v == 0)) {
             // Special 0 case on edge
             *found = 1;
-            *value = 0;
         } else {
             *found = 0;
         }
-        return i;
-    } else if (l > 0 || v != 0) {
+    } else if (likely(l > 0 || v != 0)) {
         // On digits edge or leftover partial run, return found
         cson->_partial = 0;
         *found = 1;
-        *value = v;
     } else {
         // No parse and no leftover
         *found = 0;
     }
-    return i;
+    // From start of function to here is avg 0.0006ms (or 6ns)
+    //PROF_END("cson_parse_uint", 100000);
+    return o + l;
 }
 
 void cson_update(cson_t *cson, const char *data, const size_t len) {

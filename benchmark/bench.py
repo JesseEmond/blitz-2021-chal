@@ -63,6 +63,7 @@ def benchmark(verify):
                     print("      ", sln)
                     print("      Expected: ")
                     print("      ", real_sln)
+                    return
             total_time_ms += time_ms
             total_score += score
         print('~ SET STATS ~')

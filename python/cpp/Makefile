@@ -1,6 +1,6 @@
-CC = clang
-CXX = clang++
-LD = clang++
+CC := clang
+CXX := clang++
+LD := clang++
 
 CFLAGS = -g -Wall -fPIC -Ofast -DNDEBUG
 CCFLAGS = $(CFLAGS)
@@ -15,6 +15,7 @@ LDFLAGS = -shared
 
 SRCS = \
 	cson.c \
+    parsing.c \
 	seqsum.cpp \
 	server.c
 
