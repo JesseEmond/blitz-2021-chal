@@ -154,7 +154,6 @@ int recv_challenge(const int sockfd, cson_t *cson) {
         exit(1);
     }
     char *p = data;
-    cson_init(cson);
     while (datalen > 0) {
         if (unlikely((n = recv(sockfd, p, datalen, 0)) < 0)) {
             send_bad_request(sockfd);
@@ -162,10 +161,13 @@ int recv_challenge(const int sockfd, cson_t *cson) {
             free(data);
             return -1;
         }
-        cson_update(cson, p, n);
         datalen -= n;
         p += n;
     }
+
+    cson_init(cson);
+    cson_parse(cson, data, p - data);
+
     free(data);
 
     return 0;
