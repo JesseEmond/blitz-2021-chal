@@ -130,23 +130,29 @@ void cson_update(cson_t *cson, const char *data, const size_t len) {
                 }
                 break;
             case parsing_items_pair:
-                offset = cson_parse_uint(cson, data, offset, len, &value, &found);
-                if (found) {
-                    cson->items[cson->items_size++] = value;
-                } else {
-                    offset = cson_seek_array_end(cson, data, offset, len, parsing_items);
+                while (offset < len) {
+                    offset = cson_parse_uint(cson, data, offset, len, &value, &found);
+                    if (found) {
+                        cson->items[cson->items_size++] = value;
+                    } else {
+                        offset = cson_seek_array_end(cson, data, offset, len, parsing_items);
+                        break;
+                    }
                 }
                 break;
             case parsing_track_pre:
                 offset = cson_seek_array_start(cson, data, offset, len, parsing_track, NULL);
                 break;
             case parsing_track:
-                offset = cson_parse_uint(cson, data, offset, len, &value, &found);
-                if (found) {
-                    // Running sum value
-                    cson->track[cson->track_size++] = cson->track[cson->track_size - 1] + value;
-                } else {
-                    offset = cson_seek_array_end(cson, data, offset, len, parsing_none);
+                while (offset < len) {
+                    offset = cson_parse_uint(cson, data, offset, len, &value, &found);
+                    if (found) {
+                        // Running sum value
+                        cson->track[cson->track_size++] = cson->track[cson->track_size - 1] + value;
+                    } else {
+                        offset = cson_seek_array_end(cson, data, offset, len, parsing_none);
+                        break;
+                    }
                 }
                 break;
         }
