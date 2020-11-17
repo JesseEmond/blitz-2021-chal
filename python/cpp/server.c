@@ -149,15 +149,14 @@ int recv_challenge(const int sockfd, cson_t *cson) {
         return -1;
     }
 
-    cson_init(cson);
     char* data = malloc(datalen);
     if (unlikely(data == NULL)) {
         exit(1);
     }
-    char* p = data;
+    char *p = data;
+    cson_init(cson);
     while (datalen > 0) {
-        const size_t chunk_size = 2 * 1024;
-        if (unlikely((n = recv(sockfd, p, datalen < chunk_size ? datalen : chunk_size, 0)) < 0)) {
+        if (unlikely((n = recv(sockfd, p, datalen, 0)) < 0)) {
             send_bad_request(sockfd);
             cson_free(cson);
             free(data);
@@ -168,6 +167,7 @@ int recv_challenge(const int sockfd, cson_t *cson) {
         p += n;
     }
     free(data);
+
     return 0;
 }
 
