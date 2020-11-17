@@ -8,6 +8,9 @@ extern "C" {
 #endif
 
 typedef struct cson {
+    int _cs;
+    unsigned int _value;
+
     unsigned int items[100000 * 2];
     size_t items_size;
     unsigned int track[10000 + 1];
@@ -15,7 +18,7 @@ typedef struct cson {
 } cson_t;
 
 void cson_init(cson_t *cson);
-void cson_parse(cson_t *cson, const char *buf, const size_t len);
+size_t cson_update(cson_t *cson, const char *buf, const size_t len);
 void cson_free(cson_t *cson);
 
 #ifdef __cplusplus

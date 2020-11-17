@@ -8,13 +8,12 @@
 #include <unistd.h>
 
 #include "cson.h"
-#include "expect.h"
 #include "prof.h"
 
 
 int http_server(const int port) {
     const int servfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (unlikely(servfd < 0)) {
+    if (servfd < 0) {
         return -1;
     }
 
@@ -36,12 +35,12 @@ int http_server(const int port) {
     addr.sin_port = htons(port);
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
-    if (unlikely(bind(servfd, (struct sockaddr*)&addr, sizeof(addr)) < 0)) {
+    if (bind(servfd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
         close(servfd);
         return -1;
     }
 
-    if (unlikely(listen(servfd, 10) < 0)) {
+    if (listen(servfd, 10) < 0) {
         close(servfd);
         return -1;
     }
@@ -51,7 +50,7 @@ int http_server(const int port) {
 
 int accept_client(const int servfd) {
     const int sockfd = accept(servfd, NULL, NULL);
-    if (unlikely(sockfd < 0)) {
+    if (sockfd < 0) {
         return -1;
     }
 
@@ -87,14 +86,14 @@ void send_bad_request(const int sockfd) {
 
 // TODO: This is shitty, we can parse in the data buffer and realloc to save on recv's
 ssize_t recvline(const int sockfd, char *buf, const size_t len) {
+    PROF_START(recvline);
     char c;
     size_t i = 0;
     while (i < len - 1) {
         ssize_t n = recv(sockfd, &c, 1, 0);
-        if (unlikely(n < 0)) {
+        if (n < 0) {
             return -1;
-        }
-        if (likely(n > 0)) {
+        } else if (n > 0) {
             if ((buf[i++] = c) == '\n') {
                 break;
             }
@@ -102,22 +101,24 @@ ssize_t recvline(const int sockfd, char *buf, const size_t len) {
             break;
         }
     }
-    buf[i] = '\0';
+    PROF_END(recvline, 1000);
     return i;
 }
 
 int recv_challenge(const int sockfd, cson_t *cson) {
+    PROF_START(request);
     // NOTE: Welcome to Assumption-Land(tm)
 
+    PROF_START(header);
     // Deal with the request line
     ssize_t n = 0;
-    char buf[TCP_MAXWIN];
-    if (unlikely((n = recvline(sockfd, buf, sizeof(buf))) <= 0)) {
+    char buf[2048];
+    if ((n = recvline(sockfd, buf, sizeof(buf))) <= 0) {
         return -1;
     }
 
     // Assume GET, handle the liveness check immediately
-    if (unlikely(buf[0] == 'G')) {
+    if (buf[0] == 'G') {
         send_pong(sockfd);
         return -1;
     }
@@ -125,7 +126,7 @@ int recv_challenge(const int sockfd, cson_t *cson) {
     // Assume challenge request starting here
 
     // Quickly check for a POST to make sure we can expect a body
-    if (unlikely(buf[0] != 'P')) {
+    if (buf[0] != 'P') {
         send_bad_request(sockfd);
         return -1;
     }
@@ -139,56 +140,55 @@ int recv_challenge(const int sockfd, cson_t *cson) {
         if (n > 14 && buf[0] == 'C' && buf[7] == '-' && buf[8] == 'L') {
             datalen = 0;
             char *b = buf + 16; // Skip the "Content-Length: " part to jump to value
-            for (char c = *b; likely(b - buf < n && (c >= '0' && c <= '9')); c = *(++b)) {
+            for (char c = *b; b - buf < n && (c >= '0' && c <= '9'); c = *(++b)) {
                 datalen = datalen * 10 + (c - '0');
             }
         } else if (n == 2 && buf[0] == '\r' && buf[1] == '\n') {
             break;
         }
     }
-    if (unlikely(datalen <= 0 || datalen > 10 * 1024 * 1024 /* 10MB */)) {
+    if (datalen <= 0 || datalen > 10 * 1024 * 1024 /* 10MB */) {
         send_bad_request(sockfd);
         return -1;
     }
+    PROF_END(header, 50);
 
-    PROF_START(buffer);
+    PROF_START(body);
     char* data = malloc(datalen);
-    if (unlikely(data == NULL)) {
+    if (data == NULL) {
         exit(1);
     }
-    char *p = data;
+    char *p = data, *d = data;
+    cson_init(cson);
     while (datalen > 0) {
-        if (unlikely((n = recv(sockfd, p, datalen, 0)) < 0)) {
+        if ((n = recv(sockfd, d, datalen < TCP_MAXWIN ? datalen : TCP_MAXWIN, 0)) < 0) {
             send_bad_request(sockfd);
             cson_free(cson);
             free(data);
             return -1;
         }
         datalen -= n;
-        p += n;
+        d += n;
+        p += cson_update(cson, p, d - p);
     }
-    PROF_END(buffer, 10);
-
-    PROF_START(parse);
-    cson_init(cson);
-    cson_parse(cson, data, p - data);
-    PROF_END(parse, 10);
 
     free(data);
+    PROF_END(body, 50);
 
+    PROF_END(request, 50);
     return 0;
 }
 
 int send_response(const int sockfd, const char *data, const size_t len) {
     char headers[512];
     ssize_t n = sprintf(headers, "HTTP/1.1 200 OK\r\nConnection: keep-alive\r\nContent-Type: application/json\r\nContent-Length: %ld\r\n\r\n", len);
-    if (unlikely(n < 0)) {
+    if (n < 0) {
         return -1;
     }
-    if (unlikely(send(sockfd, headers, n, 0) < 0)) {
+    if (send(sockfd, headers, n, 0) < 0) {
         return -1;
     }
-    if (unlikely(send(sockfd, data, len, 0) < 0)) {
+    if (send(sockfd, data, len, 0) < 0) {
         return -1;
     }
     sflush(sockfd);
@@ -197,7 +197,7 @@ int send_response(const int sockfd, const char *data, const size_t len) {
 
 int send_response_headers(const int sockfd) {
     const char headers[] = "HTTP/1.1 200 OK\r\nConnection: keep-alive\r\nContent-Type: application/json\r\nTransfer-Encoding: chunked\r\n\r\n";
-    if (unlikely(send(sockfd, headers, sizeof(headers) - 1, 0) < 0)) {
+    if (send(sockfd, headers, sizeof(headers) - 1, 0) < 0) {
         return -1;
     }
     sflush(sockfd);
@@ -205,21 +205,21 @@ int send_response_headers(const int sockfd) {
 }
 
 int send_response_chunk(const int sockfd, const char *data, const size_t len) {
-    if (unlikely(len == 0)) {
+    if (len == 0) {
         send(sockfd, "0\r\n\r\n", 5, 0);
     } else {
         char chunk_size[64];
         ssize_t n = sprintf(chunk_size, "%lX\r\n", len);
-        if (unlikely(n < 0)) {
+        if (n < 0) {
             return -1;
         }
-        if (unlikely(send(sockfd, chunk_size, n, 0) < 0)) {
+        if (send(sockfd, chunk_size, n, 0) < 0) {
             return -1;
         }
-        if (unlikely(send(sockfd, data, len, 0) < 0)) {
+        if (send(sockfd, data, len, 0) < 0) {
             return -1;
         }
-        if (unlikely(send(sockfd, "\r\n", 2, 0) < 0)) {
+        if (send(sockfd, "\r\n", 2, 0) < 0) {
             return -1;
         }
     }

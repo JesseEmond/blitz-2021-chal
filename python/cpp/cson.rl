@@ -5,7 +5,7 @@
     machine cson;
 
     action push_digit {
-        value = value * 10 + (*p - '0');
+        value = value * 10 + (fc - '0');
     }
 
     action add_item {
@@ -36,32 +36,37 @@
     track_item = integer %add_track;
     track = ( arr_s ( track_item ( sep track_item )* )? arr_e );
 
-    cson = (
-        obj_s
-        items_key items sep
-        track_key track
-        obj_e
-    );
+    cson = ( obj_s items_key items sep track_key track obj_e);
 
     main := cson;
 }%%
 
-%% write data;
+%% write data noerror nofinal noentry;
 
 void cson_init(cson_t *cson) {
+    int cs = 0;
+
+    %% write init;
+
+    cson->_cs = cs;
+    cson->_value = 0;
     cson->items[0] = 0;
     cson->items_size = 0;
     cson->track[0] = 0;
     cson->track_size = 1;
 }
 
-void cson_parse(cson_t *cson, const char *buf, const size_t len) {
-    int cs = 0;
+size_t cson_update(cson_t *cson, const char *buf, const size_t len) {
+    int cs = cson->_cs;
     char *p = (char*) buf;
     char *pe = p + len;
-    unsigned int value = 0;
-    %% write init;
+    unsigned int value = cson->_value;
+
     %% write exec;
+
+    cson->_cs = cs;
+    cson->_value = value;
+    return p - buf;
 }
 
 void cson_free(cson_t *cson) { }
