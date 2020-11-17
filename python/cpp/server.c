@@ -9,7 +9,7 @@
 
 #include "cson.h"
 #include "expect.h"
-#include "parsing.h"
+#include "prof.h"
 
 
 int http_server(const int port) {
@@ -111,7 +111,7 @@ int recv_challenge(const int sockfd, cson_t *cson) {
 
     // Deal with the request line
     ssize_t n = 0;
-    char buf[1024];
+    char buf[TCP_MAXWIN];
     if (unlikely((n = recvline(sockfd, buf, sizeof(buf))) <= 0)) {
         return -1;
     }
@@ -137,9 +137,11 @@ int recv_challenge(const int sockfd, cson_t *cson) {
             return -1;
         }
         if (n > 14 && buf[0] == 'C' && buf[7] == '-' && buf[8] == 'L') {
-            char *b = buf + 15; // Skip the "C-L:" part to jump to value
-            for (char c = *b; b - buf < n && (c < '0' || c > '9'); c = *(++b));
-            fast_atoi(b, n - (b - buf), (unsigned int*) &datalen);
+            datalen = 0;
+            char *b = buf + 16; // Skip the "Content-Length: " part to jump to value
+            for (char c = *b; likely(b - buf < n && (c >= '0' && c <= '9')); c = *(++b)) {
+                datalen = datalen * 10 + (c - '0');
+            }
         } else if (n == 2 && buf[0] == '\r' && buf[1] == '\n') {
             break;
         }
@@ -149,6 +151,7 @@ int recv_challenge(const int sockfd, cson_t *cson) {
         return -1;
     }
 
+    PROF_START(buffer);
     char* data = malloc(datalen);
     if (unlikely(data == NULL)) {
         exit(1);
@@ -164,9 +167,12 @@ int recv_challenge(const int sockfd, cson_t *cson) {
         datalen -= n;
         p += n;
     }
+    PROF_END(buffer, 10);
 
+    PROF_START(parse);
     cson_init(cson);
     cson_parse(cson, data, p - data);
+    PROF_END(parse, 10);
 
     free(data);
 

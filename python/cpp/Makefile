@@ -17,7 +17,6 @@ LDFLAGS = -shared
 
 SRCS = \
 	cson.c \
-    parsing.c \
 	seqsum.cpp \
 	server.c
 
