@@ -7,5 +7,5 @@ with open('cpp/numbers.h', 'w') as f:
     l = len(str(MAX))
     for i in range(MAX + 1):
         s = str(i)
-        f.write('    "{}"{}\n'.format(s.ljust(l), '' if i == MAX else ','))
+        f.write('    "{}"{}\n'.format(s.rjust(l), '' if i == MAX else ','))
     f.write('};\n\n#endif\n')

@@ -1,20 +1,44 @@
 #include <errno.h>
 #include <pthread.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "cson.h"
 #include "expect.h"
 #include "numbers.h"
-#include "prof.h"
 #include "server.h"
-#include "string.h"
 
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+char *solve_part(char *p, unsigned int *track, unsigned int *items, const size_t offset, const size_t length) {
+    for (size_t i = offset; likely(i < length); i += 2) {
+        size_t s = items[i];
+        size_t e = items[i + 1];
+        if (unlikely(s > e)) {
+            s = s ^ e;
+            e = e ^ s;
+            s = s ^ e;
+        }
+        unsigned int dist = track[e] - track[s];
+        if (unlikely(dist > NUMBERS_MAX)) {
+            *((uint32_t*) p) = *((uint32_t*) NUMBERS[dist / (NUMBERS_MAX + 1)]);
+            // 0x20 is a space, so +0x10 is 0x30 which is '0'
+            *((uint32_t*) (p + 4)) = (*((uint32_t*) NUMBERS[dist % (NUMBERS_MAX + 1)])) | 0x10101010;
+            p += 8;
+        } else {
+            *((uint32_t*) p) = *((uint32_t*) NUMBERS[dist]);
+            p += 4;
+        }
+        *(p++) = ',';
+    }
+    return p;
+}
 
 typedef struct solve_data {
     cson_t *cson;
@@ -26,53 +50,21 @@ typedef struct solve_data {
 
 void *solve_thread(void *arg) {
     solve_data_t *data = (solve_data_t*) arg;
-
-    unsigned int *track = data->cson->track;
-    unsigned int *items = data->cson->items;
-    size_t length = data->length;
-    char* p = data->output;
-
-    for (size_t i = data->offset; likely(i < length); i += 2) {
-        size_t s = items[i];
-        size_t e = items[i + 1];
-        if (unlikely(s > e)) {
-            s = s ^ e;
-            e = e ^ s;
-            s = s ^ e;
-        }
-        unsigned int dist = track[e] - track[s];
-        if (likely(dist <= NUMBERS_MAX)) {
-            const char *digits = NUMBERS[dist];
-            p[0] = digits[0];
-            p[1] = digits[1];
-            p[2] = digits[2];
-            p[3] = digits[3];
-            p += 4;
-        } else {
-            p += sprintf(p, "%d", dist);
-        }
-        *(p++) = ',';
-    }
-
-    data->output_end = p;
-
+    data->output_end = solve_part(data->output, data->cson->track, data->cson->items,
+                                  data->offset, data->length);
     return NULL;
 }
 
 int solve(int sockfd, cson_t *cson) {
-    PROF_START(solve);
-    // Guess is as follow, 512 extra + (number of queries (aka items / 2) * (6 digits max + comma))
-    size_t len_guess = 512 + ((cson->items_size / 2) * (6 + 1));
-    char* buf = malloc(len_guess);
+    // Guess is as follow, 512 extra + (number of queries (aka items / 2) * (8 digits max + comma))
+    size_t guess = 512 + ((cson->items_size / 2) * (8 + 1));
+    char* buf = malloc(guess);
     if (buf == NULL) {
         return -1;
     }
 
     // Thread handling is more expensive than speedup for small challenges
     if (likely(cson->items_size > 200)) {
-        // Blank first half with whitespace
-        memset(buf, ' ', len_guess / 2);
-
         solve_data_t tdata[2];
 
         tdata[0].cson = cson;
@@ -83,7 +75,7 @@ int solve(int sockfd, cson_t *cson) {
         tdata[1].cson = cson;
         tdata[1].offset = (cson->items_size / 2);
         tdata[1].length = cson->items_size;
-        tdata[1].output = buf + (len_guess / 2);
+        tdata[1].output = buf + (guess / 2);
 
         pthread_t tids[2];
         pthread_create(&tids[0], NULL, solve_thread, (void*) &tdata[0]);
@@ -107,15 +99,14 @@ int solve(int sockfd, cson_t *cson) {
         data.length = cson->items_size;
         data.output = buf + 1;
 
-        solve_thread((void*) &data);
+        char *end = solve_part(buf + 1, cson->track, cson->items, 0, cson->items_size);
 
         buf[0] = '[';
-        data.output_end[-1] = ']';
-        send_response(sockfd, buf, data.output_end - buf);
+        end[-1] = ']';
+        send_response(sockfd, buf, end - buf);
     }
 
     free(buf);
-    PROF_END(solve, 500);
     return 0;
 }
 

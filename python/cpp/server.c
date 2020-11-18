@@ -9,7 +9,6 @@
 
 #include "cson.h"
 #include "expect.h"
-#include "prof.h"
 
 
 int http_server(const int port) {
@@ -87,7 +86,6 @@ void send_bad_request(const int sockfd) {
 
 // TODO: This is shitty, we can parse in the data buffer and realloc to save on recv's
 ssize_t recvline(const int sockfd, char *buf, const size_t len) {
-    PROF_START(recvline);
     char c;
     size_t i = 0;
     while (likely(i < len)) {
@@ -102,15 +100,12 @@ ssize_t recvline(const int sockfd, char *buf, const size_t len) {
             break;
         }
     }
-    PROF_END(recvline, 1000);
     return i;
 }
 
 int recv_challenge(const int sockfd, cson_t *cson) {
-    PROF_START(request);
     // NOTE: Welcome to Assumption-Land(tm)
 
-    PROF_START(header);
     // Deal with the request line
     ssize_t n = 0;
     char buf[2048];
@@ -146,9 +141,7 @@ int recv_challenge(const int sockfd, cson_t *cson) {
         send_bad_request(sockfd);
         return -1;
     }
-    PROF_END(header, 500);
 
-    PROF_START(body);
     char* data = malloc(datalen);
     if (unlikely(data == NULL)) {
         exit(1);
@@ -168,9 +161,7 @@ int recv_challenge(const int sockfd, cson_t *cson) {
     }
 
     free(data);
-    PROF_END(body, 500);
 
-    PROF_END(request, 500);
     return 0;
 }
 

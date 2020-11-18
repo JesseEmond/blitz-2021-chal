@@ -57,7 +57,7 @@ def benchmark(verify):
                   f'time: {time_ms:.2f}ms,   score: {score:.2f}')
             if verify:
                 real_sln = slow_solve(challenge)
-                if sln != real_sln:
+                if sln.replace(' ', '') != real_sln:
                     print("!!! WRONG ANSWER !!!")
                     print("      Got: ")
                     print("      ", sln)
