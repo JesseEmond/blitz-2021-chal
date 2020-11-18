@@ -9,7 +9,7 @@ But really, see the doc on [python/cpp/seqsum.cpp](./python/cpp/seqsum.cpp), it 
 Launch the server:
 
 ```
-./cpp/compile.sh && python3 application.py
+make && python3 application.py
 ```
 
 Launch the benchmark tool:
@@ -30,11 +30,11 @@ You have a good candidate?
 
 Remove prints. Have `PROFILE_OUTPUT_N` undefined.
 
-Go in [`compile.sh`](./python/cpp/compile.sh), uncomment the line to generate the [PGO](https://en.wikipedia.org/wiki/Profile-guided_optimization) profile
+Go in [`Makefile`](./python/cpp/Makefile), uncomment the line to generate the [PGO](https://en.wikipedia.org/wiki/Profile-guided_optimization) profile
 (`-fprofile-instr-generate`). Run the server with the benchmark tool for a full challenge set.
 
 Process the generated profile: e.g. `llvm-profdata-10 merge --output cpp/default.profdata default.profraw`.
-Recompile using `compile.sh`, but now using the profile generated (`-fprofile-instr-use`).
+Recompile using `make clean && make`, but now using the profile generated (`-fprofile-instr-use`).
 
 Zip your `python` folder and submit on the website. Wait until the build is done. Click on `Launch`, and wait!
 

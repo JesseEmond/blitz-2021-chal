@@ -62,7 +62,7 @@
 // Then, it "parses" the JSON by skipping everything and creating a big list
 // of ints, which it can process for the challenge.
 // Finally, it writes the final array by writing out a final list of ints.
-// 
+//
 // Our local benchmark tool shows, for different sizes of problems:
 // track 10,    queries 10:     1.75ms  3.00pts
 // track 100,   queries 100:    1.78ms  3.00pts
@@ -99,36 +99,64 @@
 
 // Enable this #define to get profiling numbers from the C++ program itself, where measured.
 // Show profile timers every N calls.
-#define PROFILE_OUTPUT_N 500
+//#define PROFILE_OUTPUT_N 500
 
 
 #include "challenge.h"
 #include "measure.h"
-#include "http.h"
+#include "server.h"
+#include "cson.h"
 
 #include <iostream>
-#include <string>
+#include <unistd.h>
+#include <string_view>
 
 
 extern "C" {
     // Launches our "HTTP" server, waiting to solve challenges.
     void launch(int port) {
-        HttpServer server{port};
-        std::cout << "Listening on " << port << "..." << std::endl;
-        while (true) {
-            if (server.wait_for_client()) {
-                measure("end2end", [&] {
-                    std::string_view challenge = server.read_chal();
+        int servfd = http_server(port);
+        if (servfd < 0) {
+            std::cerr << "Failed to bind to port " << port << std::endl;
+            exit(1);
+        }
+        std::cout << "Listening on port " << port << std::endl;
 
+        while (true) {
+            int sockfd = accept_client(servfd);
+            if (sockfd < 0) {
+                if (errno == EINTR) {
+                    break;
+                } else {
+                    continue;
+                }
+            }
+
+            // TODO: Can we just fork() here? Are requests sent in parallel?
+
+            cson_t cson;
+            bool keep_alive = true;
+            while (keep_alive) {
+                measure("end2end", [&] {
+                    if (recv_challenge(sockfd, &cson) < 0) {
+                        keep_alive = false;
+                        return;
+                    }
                     std::string_view sln;
                     measure("end2end::solve", [&] {
-                        sln = seqsum(challenge);
+                        sln = seqsum(&cson);
                     });
-
-                    server.send_content(sln);
+                    send_response(sockfd, sln.data(), sln.size());
+                    cson_free(&cson);
                 });
             }
-            server.close_conn();
+
+            close(sockfd);
         }
+    }
+
+    int main(int argc, char** argv) {
+        launch(27178);
+        return 0;
     }
 }

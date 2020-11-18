@@ -4,10 +4,13 @@ import requests
 import time
 
 
+sess = requests.session()
+
+
 def send_chal(data):
     """Returns (time_ms, score, sln)."""
     start_time = time.time()
-    r = requests.post('http://localhost:27178/microchallenge', data=data)
+    r = sess.post('http://localhost:27178/microchallenge', data=data)
     end_time = time.time()
 
     time_s = end_time - start_time
@@ -60,6 +63,7 @@ def benchmark(verify):
                     print("      ", sln)
                     print("      Expected: ")
                     print("      ", real_sln)
+                    return
             total_time_ms += time_ms
             total_score += score
         print('~ SET STATS ~')
@@ -72,4 +76,4 @@ if __name__ == '__main__':
     parser.add_argument('--verify', default=False, action='store_true')
 
     args = parser.parse_args()
-    benchmark(verify=args.verify) 
+    benchmark(verify=args.verify)

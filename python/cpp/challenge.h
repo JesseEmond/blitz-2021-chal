@@ -1,4 +1,5 @@
 #include "measure.h"
+#include "cson.h"
 
 #include <string.h>
 
@@ -28,7 +29,7 @@ Sum read_number(std::string_view& data);
 // =======
 // Solves the given 'items' queries on a precomputed 'running_sum' track.
 // Supports solving a subset e.g. to run multithreaded.
-void solve_subset(const Track& running_sum, const Items& items,
+void solve_subset(const unsigned int *running_sum, const unsigned int *items,
                   Outputs& outputs, Outputs::size_type start, Outputs::size_type end);
 
 // ==============
@@ -48,19 +49,11 @@ inline char* format_int_moving_back(char* ptr, Sum n);
 // MAIN CHALLENGE
 // ==============
 // Take in JSON, solve the problem, and output JSON.
-const std::string_view seqsum(std::string_view data) {
-    Track running_sum;
-    Items items;
-    Track::size_type track_count;
-    Items::size_type items_count;
-    measure("parse", [&] {
-        parse_data(data, items, items_count, running_sum, track_count);
-    });
-    const Outputs::size_type sums_count = items_count / 2;
-
+const std::string_view seqsum(cson_t *data) {
     static Outputs outputs;
+    const Outputs::size_type sums_count = data->items_size / 2;
     measure("solve", [&] {
-        solve_subset(running_sum, items, outputs, 0, sums_count);
+        solve_subset(data->track, data->items, outputs, 0, sums_count);
     });
     const char* out_ptr;
     std::string_view::size_type out_len;
@@ -137,16 +130,16 @@ char* format_int_moving_back(char* ptr, Sum n) {
     return ptr;
 }
 
-void solve_subset(const Track& running_sum, const Items& items,
+void solve_subset(const unsigned int *running_sum, const unsigned int *items,
                   Outputs& outputs, Outputs::size_type start, Outputs::size_type end) {
     Outputs::size_type i = start;
-    for (Items::size_type item_i = start * 2; item_i < end * 2; item_i += 2) {
+    for (size_t item_i = start * 2; item_i < end * 2; item_i += 2) {
         const Sum query_start = std::min(items[item_i], items[item_i+1]);
         const Sum query_end = std::max(items[item_i], items[item_i+1]);
         const Sum sum = running_sum[query_end] - running_sum[query_start];
         outputs[i] = sum;
         ++i;
-    } 
+    }
 }
 
 void parse_data(std::string_view data, Items& items, Items::size_type& item_count,

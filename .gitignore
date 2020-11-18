@@ -1,5 +1,7 @@
+*.o
+*.so
+*.zip
 __pycache__
 default.profdata
 default.profraw
-*.o
-*.so
+python/cpp/cson.c
