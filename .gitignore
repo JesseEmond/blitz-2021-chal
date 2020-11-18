@@ -4,4 +4,3 @@
 __pycache__
 default.profdata
 default.profraw
-python/cpp/cson.c
