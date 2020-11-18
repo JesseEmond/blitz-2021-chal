@@ -70,8 +70,6 @@ int solve(int sockfd, cson_t *cson) {
 
     // Thread handling is more expensive than speedup for small challenges
     if (likely(cson->items_size > 200)) {
-        send_response_headers(sockfd);
-
         // Blank first half with whitespace
         memset(buf, ' ', len_guess / 2);
 
@@ -90,6 +88,8 @@ int solve(int sockfd, cson_t *cson) {
         pthread_t tids[2];
         pthread_create(&tids[0], NULL, solve_thread, (void*) &tdata[0]);
         pthread_create(&tids[1], NULL, solve_thread, (void*) &tdata[1]);
+
+        send_response_headers(sockfd);
 
         pthread_join(tids[0], NULL);
         buf[0] = '[';
