@@ -7,7 +7,7 @@ CFLAGS = -g -Wall -fPIC -Ofast -DNDEBUG
 CCFLAGS = $(CFLAGS)
 CXXFLAGS = $(CFLAGS) -std=c++17
 RLFLAGS = -G2
-LDFLAGS = -shared
+LDFLAGS = -shared -lpthread
 
 # use this to generate/use a PGO profile file
 #PROFFLAGS = -fprofile-instr-generate
@@ -17,8 +17,8 @@ LDFLAGS = -shared
 
 SRCS = \
 	cson.c \
-	seqsum.cpp \
-	server.c
+	server.c \
+	main.c
 
 OBJS = $(SRCS:%=%.o)
 

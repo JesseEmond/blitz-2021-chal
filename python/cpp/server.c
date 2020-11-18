@@ -8,6 +8,7 @@
 #include <unistd.h>
 
 #include "cson.h"
+#include "expect.h"
 #include "prof.h"
 
 
@@ -89,11 +90,11 @@ ssize_t recvline(const int sockfd, char *buf, const size_t len) {
     PROF_START(recvline);
     char c;
     size_t i = 0;
-    while (i < len - 1) {
+    while (likely(i < len)) {
         ssize_t n = recv(sockfd, &c, 1, 0);
-        if (n < 0) {
+        if (unlikely(n < 0)) {
             return -1;
-        } else if (n > 0) {
+        } else if (likely(n > 0)) {
             if ((buf[i++] = c) == '\n') {
                 break;
             }
@@ -113,28 +114,22 @@ int recv_challenge(const int sockfd, cson_t *cson) {
     // Deal with the request line
     ssize_t n = 0;
     char buf[2048];
-    if ((n = recvline(sockfd, buf, sizeof(buf))) <= 0) {
+    if (unlikely((n = recvline(sockfd, buf, sizeof(buf))) <= 0)) {
         return -1;
     }
 
     // Assume GET, handle the liveness check immediately
-    if (buf[0] == 'G') {
+    if (unlikely(buf[0] == 'G')) {
         send_pong(sockfd);
         return -1;
     }
 
     // Assume challenge request starting here
 
-    // Quickly check for a POST to make sure we can expect a body
-    if (buf[0] != 'P') {
-        send_bad_request(sockfd);
-        return -1;
-    }
-
     // Consume headers and "parse" the Content-Length
     size_t datalen = 0;
     for (;;) {
-        if ((n = recvline(sockfd, buf, sizeof(buf))) <= 0) {
+        if (unlikely((n = recvline(sockfd, buf, sizeof(buf))) <= 0)) {
             return -1;
         }
         if (n > 14 && buf[0] == 'C' && buf[7] == '-' && buf[8] == 'L') {
@@ -147,21 +142,21 @@ int recv_challenge(const int sockfd, cson_t *cson) {
             break;
         }
     }
-    if (datalen <= 0 || datalen > 10 * 1024 * 1024 /* 10MB */) {
+    if (unlikely(datalen <= 0 || datalen > 10 * 1024 * 1024 /* 10MB */)) {
         send_bad_request(sockfd);
         return -1;
     }
-    PROF_END(header, 50);
+    PROF_END(header, 500);
 
     PROF_START(body);
     char* data = malloc(datalen);
-    if (data == NULL) {
+    if (unlikely(data == NULL)) {
         exit(1);
     }
     char *p = data, *d = data;
     cson_init(cson);
-    while (datalen > 0) {
-        if ((n = recv(sockfd, d, datalen < TCP_MAXWIN ? datalen : TCP_MAXWIN, 0)) < 0) {
+    while (likely(datalen > 0)) {
+        if ((n = recv(sockfd, d, likely(datalen < TCP_MAXWIN) ? datalen : TCP_MAXWIN, 0)) < 0) {
             send_bad_request(sockfd);
             cson_free(cson);
             free(data);
@@ -173,22 +168,22 @@ int recv_challenge(const int sockfd, cson_t *cson) {
     }
 
     free(data);
-    PROF_END(body, 50);
+    PROF_END(body, 500);
 
-    PROF_END(request, 50);
+    PROF_END(request, 500);
     return 0;
 }
 
 int send_response(const int sockfd, const char *data, const size_t len) {
     char headers[512];
     ssize_t n = sprintf(headers, "HTTP/1.1 200 OK\r\nConnection: keep-alive\r\nContent-Type: application/json\r\nContent-Length: %ld\r\n\r\n", len);
-    if (n < 0) {
+    if (unlikely(n < 0)) {
         return -1;
     }
-    if (send(sockfd, headers, n, 0) < 0) {
+    if (unlikely(send(sockfd, headers, n, 0) < 0)) {
         return -1;
     }
-    if (send(sockfd, data, len, 0) < 0) {
+    if (unlikely(send(sockfd, data, len, 0) < 0)) {
         return -1;
     }
     sflush(sockfd);
@@ -197,7 +192,7 @@ int send_response(const int sockfd, const char *data, const size_t len) {
 
 int send_response_headers(const int sockfd) {
     const char headers[] = "HTTP/1.1 200 OK\r\nConnection: keep-alive\r\nContent-Type: application/json\r\nTransfer-Encoding: chunked\r\n\r\n";
-    if (send(sockfd, headers, sizeof(headers) - 1, 0) < 0) {
+    if (unlikely(send(sockfd, headers, sizeof(headers) - 1, 0) < 0)) {
         return -1;
     }
     sflush(sockfd);
@@ -205,21 +200,21 @@ int send_response_headers(const int sockfd) {
 }
 
 int send_response_chunk(const int sockfd, const char *data, const size_t len) {
-    if (len == 0) {
+    if (unlikely(len == 0)) {
         send(sockfd, "0\r\n\r\n", 5, 0);
     } else {
         char chunk_size[64];
         ssize_t n = sprintf(chunk_size, "%lX\r\n", len);
-        if (n < 0) {
+        if (unlikely(n < 0)) {
             return -1;
         }
-        if (send(sockfd, chunk_size, n, 0) < 0) {
+        if (unlikely(send(sockfd, chunk_size, n, 0) < 0)) {
             return -1;
         }
-        if (send(sockfd, data, len, 0) < 0) {
+        if (unlikely(send(sockfd, data, len, 0) < 0)) {
             return -1;
         }
-        if (send(sockfd, "\r\n", 2, 0) < 0) {
+        if (unlikely(send(sockfd, "\r\n", 2, 0) < 0)) {
             return -1;
         }
     }
