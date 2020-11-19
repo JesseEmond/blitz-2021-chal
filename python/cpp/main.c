@@ -27,19 +27,22 @@ int solve(int sockfd, cson_t *cson) {
     unsigned int *items = cson->items;
     unsigned int *track = cson->track;
     for (size_t i = 0; i < length; i += 2) {
-        unsigned int dist;
-        if (items[i] > items[i + 1]) {
-            dist = track[items[i]] - track[items[i + 1]];
-        } else {
-            dist = track[items[i + 1]] - track[items[i]];
+        size_t s = items[i], e = items[i + 1];
+        if (s > e) {
+            // XOR swap and temp var both produce identical assembly, the compiler knows.
+            s ^= e;
+            e ^= s;
+            s ^= e;
         }
+        unsigned int dist = track[e] - track[s];
         if (dist > NUMBERS_MAX) {
             // Try to get the compiler to do x86 `div` or something (it generates imul, weird, but whatever)
             unsigned int div = dist / (NUMBERS_MAX + 1), mod = dist % (NUMBERS_MAX + 1);
             *((uint32_t*) p) = NUMBERS[div];
+            p += 4;
             // 0x20 is a space ' ', so +0x10 is 0x30 which is zero '0'
-            *((uint32_t*) (p + 4)) = NUMBERS[mod] | 0x10101010;
-            p += 8;
+            *((uint32_t*) p) = NUMBERS[mod] | 0x10101010;
+            p += 4;
         } else {
             *((uint32_t*) p) = NUMBERS[dist];
             p += 4;
