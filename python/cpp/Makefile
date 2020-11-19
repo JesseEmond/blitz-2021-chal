@@ -3,7 +3,8 @@ CXX := g++
 RL := ragel
 LD := g++
 
-CFLAGS = -g -Wall -fPIC -Ofast -DNDEBUG
+# Switch -march=native if the output doesn't run on your arch, revert for challenge build
+CFLAGS = -g -Wall -fPIC -Ofast -DNDEBUG -march=cascadelake
 CCFLAGS = $(CFLAGS)
 CXXFLAGS = $(CFLAGS) -std=c++17
 RLFLAGS = -G2
