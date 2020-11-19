@@ -36,13 +36,12 @@ int solve(int sockfd, cson_t *cson) {
         if (dist > NUMBERS_MAX) {
             // Try to get the compiler to do x86 `div` or something (it generates imul, weird, but whatever)
             unsigned int div = dist / (NUMBERS_MAX + 1), mod = dist % (NUMBERS_MAX + 1);
-            *((uint32_t*) p) = *((uint32_t*) NUMBERS[div]);
+            *((uint32_t*) p) = NUMBERS[div];
             // 0x20 is a space ' ', so +0x10 is 0x30 which is zero '0'
-            *((uint32_t*) (p + 4)) = (*((uint32_t*) NUMBERS[mod])) | 0x10101010;
+            *((uint32_t*) (p + 4)) = NUMBERS[mod] | 0x10101010;
             p += 8;
         } else {
-            // Single `mov` integer to string lol
-            *((uint32_t*) p) = *((uint32_t*) NUMBERS[dist]);
+            *((uint32_t*) p) = NUMBERS[dist];
             p += 4;
         }
         *(p++) = ',';
