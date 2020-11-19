@@ -9,12 +9,14 @@
     }
 
     action add_item {
-        cson->items[cson->items_size++] = value;
+        items[items_size] = value;
+        ++items_size;
         value = 0;
     }
 
     action add_track {
-        cson->track[cson->track_size++] = cson->track[cson->track_size - 1] + value;
+        track[track_size] = track[track_size - 1] + value;
+        ++track_size;
         value = 0;
     }
 
@@ -58,14 +60,20 @@ void cson_init(cson_t *cson) {
 
 size_t cson_update(cson_t *cson, const char *buf, const size_t len) {
     int cs = cson->_cs;
+    unsigned int value = cson->_value;
+    unsigned int *items = cson->items;
+    size_t items_size = cson->items_size;
+    unsigned int *track = cson->track;
+    size_t track_size = cson->track_size;
+
     char *p = (char*) buf;
     char *pe = p + len;
-    unsigned int value = cson->_value;
-
     %% write exec;
 
     cson->_cs = cs;
     cson->_value = value;
+    cson->items_size = items_size;
+    cson->track_size = track_size;
     return p - buf;
 }
 

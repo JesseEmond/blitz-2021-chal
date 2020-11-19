@@ -21,9 +21,9 @@ char *solve_part(char *p, unsigned int *track, unsigned int *items, const size_t
         size_t s = items[i];
         size_t e = items[i + 1];
         if (unlikely(s > e)) {
-            s = s ^ e;
-            e = e ^ s;
-            s = s ^ e;
+            s ^= e;
+            e ^= s;
+            s ^= e;
         }
         unsigned int dist = track[e] - track[s];
         if (unlikely(dist > NUMBERS_MAX)) {
@@ -93,12 +93,6 @@ int solve(int sockfd, cson_t *cson) {
 
         send_response_chunk(sockfd, NULL, 0);
     } else {
-        solve_data_t data;
-        data.cson = cson;
-        data.offset = 0;
-        data.length = cson->items_size;
-        data.output = buf + 1;
-
         char *end = solve_part(buf + 1, cson->track, cson->items, 0, cson->items_size);
 
         buf[0] = '[';

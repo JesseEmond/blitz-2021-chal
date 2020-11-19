@@ -1,7 +1,7 @@
-CC := clang
-CXX := clang++
+CC := gcc
+CXX := g++
 RL := ragel
-LD := clang++
+LD := g++
 
 CFLAGS = -g -Wall -fPIC -Ofast -DNDEBUG
 CCFLAGS = $(CFLAGS)
