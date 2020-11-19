@@ -5,7 +5,8 @@
     machine cson;
 
     action push_digit {
-        value = value * 10 + (fc - '0');
+        value *= 10;
+        value += fc - '0';
     }
 
     action add_item {
@@ -32,11 +33,11 @@
 
     items_key = "\"items\":";
     items_item = ( arr_s integer %add_item sep integer %add_item arr_e );
-    items = ( arr_s ( items_item ( sep items_item )* )? arr_e );
+    items = ( arr_s ( items_item ( sep items_item )* ) arr_e );
 
     track_key = "\"track\":";
     track_item = integer %add_track;
-    track = ( arr_s ( track_item ( sep track_item )* )? arr_e );
+    track = ( arr_s ( track_item ( sep track_item )* ) arr_e );
 
     cson = ( obj_s items_key items sep track_key track obj_e);
 
