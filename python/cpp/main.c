@@ -6,7 +6,6 @@
 #include <unistd.h>
 
 #include "cson.h"
-#include "expect.h"
 #include "numbers.h"
 #include "server.h"
 
@@ -27,14 +26,14 @@ int solve(int sockfd, cson_t *cson) {
     size_t length = cson->items_size;
     unsigned int *items = cson->items;
     unsigned int *track = cson->track;
-    for (size_t i = 0; likely(i < length); i += 2) {
+    for (size_t i = 0; i < length; i += 2) {
         unsigned int dist;
-        if (unlikely(items[i] > items[i + 1])) {
+        if (items[i] > items[i + 1]) {
             dist = track[items[i]] - track[items[i + 1]];
         } else {
             dist = track[items[i + 1]] - track[items[i]];
         }
-        if (unlikely(dist > NUMBERS_MAX)) {
+        if (dist > NUMBERS_MAX) {
             // Try to get the compiler to do x86 `div` or something (it generates imul, weird, but whatever)
             unsigned int div = dist / (NUMBERS_MAX + 1), mod = dist % (NUMBERS_MAX + 1);
             *((uint32_t*) p) = *((uint32_t*) NUMBERS[div]);
@@ -59,15 +58,15 @@ int solve(int sockfd, cson_t *cson) {
 
 void launch(const int port, const int exit_early) {
     int servfd = http_server(port);
-    if (unlikely(servfd < 0)) {
+    if (servfd < 0) {
         fprintf(stderr, "Failed to bind to port %d\n", port);
     }
     printf("Listening on port %d\n", port);
 
     for (;;) {
         int sockfd = accept_client(servfd);
-        if (unlikely(sockfd < 0)) {
-            if (unlikely(errno == EINTR)) {
+        if (sockfd < 0) {
+            if (errno == EINTR) {
                 break;
             } else {
                 continue;
@@ -76,7 +75,7 @@ void launch(const int port, const int exit_early) {
 
         for (;;) {
             cson_t cson;
-            if (unlikely(recv_challenge(sockfd, &cson) < 0)) {
+            if (recv_challenge(sockfd, &cson) < 0) {
                 break;
             }
             solve(sockfd, &cson);
@@ -86,7 +85,7 @@ void launch(const int port, const int exit_early) {
 
         close(sockfd);
 
-        if (unlikely(exit_early)) {
+        if (exit_early) {
             break;
         }
     }
