@@ -4,7 +4,7 @@
 
 
 
-#line 54 "cson.rl"
+#line 55 "cson.rl"
 
 
 
@@ -12,7 +12,7 @@
 static const int cson_start = 1;
 
 
-#line 57 "cson.rl"
+#line 58 "cson.rl"
 
 void cson_init(cson_t *cson) {
     int cs;
@@ -23,7 +23,7 @@ void cson_init(cson_t *cson) {
 	cs = cson_start;
 	}
 
-#line 62 "cson.rl"
+#line 63 "cson.rl"
 
     cson->_cs = cs;
     cson->_value = 0;
@@ -191,6 +191,7 @@ case 15:
 tr15:
 #line 17 "cson.rl"
 	{
+        // The start < end check is done here because of cache locality
         if (item_start > value) {
             items[items_size++] = value;
             items[items_size++] = item_start;
@@ -205,7 +206,7 @@ st16:
 	if ( ++p == pe )
 		goto _test_eof16;
 case 16:
-#line 209 "cson.c"
+#line 210 "cson.c"
 	switch( (*p) ) {
 		case 44: goto st11;
 		case 93: goto st17;
@@ -282,7 +283,7 @@ case 26:
 		goto st27;
 	goto st0;
 tr28:
-#line 28 "cson.rl"
+#line 29 "cson.rl"
 	{
         track[track_size++] = (track_sum += value);
         value = 0;
@@ -292,7 +293,7 @@ st27:
 	if ( ++p == pe )
 		goto _test_eof27;
 case 27:
-#line 296 "cson.c"
+#line 297 "cson.c"
 	if ( 48 <= (*p) && (*p) <= 57 )
 		goto tr27;
 	goto st0;
@@ -307,7 +308,7 @@ st28:
 	if ( ++p == pe )
 		goto _test_eof28;
 case 28:
-#line 311 "cson.c"
+#line 312 "cson.c"
 	switch( (*p) ) {
 		case 44: goto tr28;
 		case 93: goto tr29;
@@ -316,7 +317,7 @@ case 28:
 		goto tr27;
 	goto st0;
 tr29:
-#line 28 "cson.rl"
+#line 29 "cson.rl"
 	{
         track[track_size++] = (track_sum += value);
         value = 0;
@@ -326,7 +327,7 @@ st29:
 	if ( ++p == pe )
 		goto _test_eof29;
 case 29:
-#line 330 "cson.c"
+#line 331 "cson.c"
 	if ( (*p) == 125 )
 		goto st30;
 	goto st0;
@@ -370,7 +371,7 @@ case 30:
 	_out: {}
 	}
 
-#line 87 "cson.rl"
+#line 88 "cson.rl"
 
     cson->_cs = cs;
     cson->_value = value;

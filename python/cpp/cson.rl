@@ -15,6 +15,7 @@
     }
 
     action item_end {
+        // The start < end check is done here because of cache locality
         if (item_start > value) {
             items[items_size++] = value;
             items[items_size++] = item_start;

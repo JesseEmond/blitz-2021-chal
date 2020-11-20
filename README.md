@@ -36,8 +36,8 @@ Remove prints. Have `PROFILE_ENABLED` set to `0`.
 
 Go in [`Makefile`](./python/cpp/Makefile), uncomment the line to generate the
 [PGO](https://en.wikipedia.org/wiki/Profile-guided_optimization) profile
-(`-fprofile-generate`). Run the server with the benchmark tool for a full
-challenge set.
+(`-fprofile-generate`). Recompile with `make scrub && make`. Run the server
+with the benchmark tool for a full challenge set.
 
 Recompile using `make clean && make`, but now using the profile generated
 (`-fprofile-use`).
