@@ -54,10 +54,10 @@ def benchmark(verify):
             score = sample_scores[len(sample_scores)//2]
             print(f'  Challenge #{idx+1}: {len(challenge["track"])} track length,  '
                   f'{len(challenge["items"])} queries,   '
-                  f'time: {time_ms:.2f}ms,   score: {score:.2f}')
+                  f'time: {time_ms:.4f}ms,   score: {score:.4f}')
             if verify:
                 real_sln = slow_solve(challenge)
-                if sln != real_sln:
+                if sln.replace(' ', '') != real_sln:
                     print("!!! WRONG ANSWER !!!")
                     print("      Got: ")
                     print("      ", sln)

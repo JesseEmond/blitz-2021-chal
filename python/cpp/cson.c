@@ -4,7 +4,7 @@
 
 
 
-#line 42 "cson.rl"
+#line 55 "cson.rl"
 
 
 
@@ -12,10 +12,10 @@
 static const int cson_start = 1;
 
 
-#line 45 "cson.rl"
+#line 58 "cson.rl"
 
 void cson_init(cson_t *cson) {
-    int cs = 0;
+    int cs;
 
     
 #line 22 "cson.c"
@@ -23,24 +23,33 @@ void cson_init(cson_t *cson) {
 	cs = cson_start;
 	}
 
-#line 50 "cson.rl"
+#line 63 "cson.rl"
 
     cson->_cs = cs;
     cson->_value = 0;
-    cson->items[0] = 0;
+    cson->_item_start = 0;
+    cson->_track_sum = 0;
+
     cson->items_size = 0;
     cson->track[0] = 0;
     cson->track_size = 1;
 }
 
-size_t cson_update(cson_t *cson, const char *buf, const size_t len) {
+char *cson_parse(cson_t *cson, const char *start, const char *end) {
     int cs = cson->_cs;
-    char *p = (char*) buf;
-    char *pe = p + len;
     unsigned int value = cson->_value;
+    unsigned int item_start = cson->_item_start;
+    unsigned int track_sum = cson->_track_sum;
 
+    unsigned int *items = cson->items;
+    size_t items_size = cson->items_size;
+    unsigned int *track = cson->track;
+    size_t track_size = cson->track_size;
+
+    char *p = (char*) start;
+    char *pe = (char*) end;;
     
-#line 44 "cson.c"
+#line 53 "cson.c"
 	{
 	if ( p == pe )
 		goto _test_eof;
@@ -120,38 +129,37 @@ st11:
 	if ( ++p == pe )
 		goto _test_eof11;
 case 11:
-	switch( (*p) ) {
-		case 91: goto st12;
-		case 93: goto st18;
-	}
+	if ( (*p) == 91 )
+		goto st12;
 	goto st0;
 st12:
 	if ( ++p == pe )
 		goto _test_eof12;
 case 12:
 	if ( 48 <= (*p) && (*p) <= 57 )
-		goto tr13;
+		goto tr12;
 	goto st0;
-tr13:
+tr12:
 #line 7 "cson.rl"
 	{
-        value = value * 10 + ((*p) - '0');
+        value *= 10;
+        value += (*p) - '0';
     }
 	goto st13;
 st13:
 	if ( ++p == pe )
 		goto _test_eof13;
 case 13:
-#line 146 "cson.c"
+#line 154 "cson.c"
 	if ( (*p) == 44 )
-		goto tr14;
-	if ( 48 <= (*p) && (*p) <= 57 )
 		goto tr13;
+	if ( 48 <= (*p) && (*p) <= 57 )
+		goto tr12;
 	goto st0;
-tr14:
-#line 11 "cson.rl"
+tr13:
+#line 12 "cson.rl"
 	{
-        cson->items[cson->items_size++] = value;
+        item_start = value;
         value = 0;
     }
 	goto st14;
@@ -159,30 +167,38 @@ st14:
 	if ( ++p == pe )
 		goto _test_eof14;
 case 14:
-#line 163 "cson.c"
+#line 171 "cson.c"
 	if ( 48 <= (*p) && (*p) <= 57 )
-		goto tr15;
+		goto tr14;
 	goto st0;
-tr15:
+tr14:
 #line 7 "cson.rl"
 	{
-        value = value * 10 + ((*p) - '0');
+        value *= 10;
+        value += (*p) - '0';
     }
 	goto st15;
 st15:
 	if ( ++p == pe )
 		goto _test_eof15;
 case 15:
-#line 177 "cson.c"
+#line 186 "cson.c"
 	if ( (*p) == 93 )
-		goto tr16;
-	if ( 48 <= (*p) && (*p) <= 57 )
 		goto tr15;
+	if ( 48 <= (*p) && (*p) <= 57 )
+		goto tr14;
 	goto st0;
-tr16:
-#line 11 "cson.rl"
+tr15:
+#line 17 "cson.rl"
 	{
-        cson->items[cson->items_size++] = value;
+        // The start < end check is done here because of cache locality
+        if (item_start > value) {
+            items[items_size++] = value;
+            items[items_size++] = item_start;
+        } else {
+            items[items_size++] = item_start;
+            items[items_size++] = value;
+        }
         value = 0;
     }
 	goto st16;
@@ -190,150 +206,135 @@ st16:
 	if ( ++p == pe )
 		goto _test_eof16;
 case 16:
-#line 194 "cson.c"
+#line 210 "cson.c"
 	switch( (*p) ) {
-		case 44: goto st17;
-		case 93: goto st18;
+		case 44: goto st11;
+		case 93: goto st17;
 	}
 	goto st0;
 st17:
 	if ( ++p == pe )
 		goto _test_eof17;
 case 17:
-	if ( (*p) == 91 )
-		goto st12;
+	if ( (*p) == 44 )
+		goto st18;
 	goto st0;
 st18:
 	if ( ++p == pe )
 		goto _test_eof18;
 case 18:
-	if ( (*p) == 44 )
+	if ( (*p) == 34 )
 		goto st19;
 	goto st0;
 st19:
 	if ( ++p == pe )
 		goto _test_eof19;
 case 19:
-	if ( (*p) == 34 )
+	if ( (*p) == 116 )
 		goto st20;
 	goto st0;
 st20:
 	if ( ++p == pe )
 		goto _test_eof20;
 case 20:
-	if ( (*p) == 116 )
+	if ( (*p) == 114 )
 		goto st21;
 	goto st0;
 st21:
 	if ( ++p == pe )
 		goto _test_eof21;
 case 21:
-	if ( (*p) == 114 )
+	if ( (*p) == 97 )
 		goto st22;
 	goto st0;
 st22:
 	if ( ++p == pe )
 		goto _test_eof22;
 case 22:
-	if ( (*p) == 97 )
+	if ( (*p) == 99 )
 		goto st23;
 	goto st0;
 st23:
 	if ( ++p == pe )
 		goto _test_eof23;
 case 23:
-	if ( (*p) == 99 )
+	if ( (*p) == 107 )
 		goto st24;
 	goto st0;
 st24:
 	if ( ++p == pe )
 		goto _test_eof24;
 case 24:
-	if ( (*p) == 107 )
+	if ( (*p) == 34 )
 		goto st25;
 	goto st0;
 st25:
 	if ( ++p == pe )
 		goto _test_eof25;
 case 25:
-	if ( (*p) == 34 )
+	if ( (*p) == 58 )
 		goto st26;
 	goto st0;
 st26:
 	if ( ++p == pe )
 		goto _test_eof26;
 case 26:
-	if ( (*p) == 58 )
+	if ( (*p) == 91 )
 		goto st27;
 	goto st0;
+tr28:
+#line 29 "cson.rl"
+	{
+        track[track_size++] = (track_sum += value);
+        value = 0;
+    }
+	goto st27;
 st27:
 	if ( ++p == pe )
 		goto _test_eof27;
 case 27:
-	if ( (*p) == 91 )
-		goto st28;
+#line 297 "cson.c"
+	if ( 48 <= (*p) && (*p) <= 57 )
+		goto tr27;
 	goto st0;
+tr27:
+#line 7 "cson.rl"
+	{
+        value *= 10;
+        value += (*p) - '0';
+    }
+	goto st28;
 st28:
 	if ( ++p == pe )
 		goto _test_eof28;
 case 28:
-	if ( (*p) == 93 )
-		goto st31;
+#line 312 "cson.c"
+	switch( (*p) ) {
+		case 44: goto tr28;
+		case 93: goto tr29;
+	}
 	if ( 48 <= (*p) && (*p) <= 57 )
-		goto tr28;
+		goto tr27;
 	goto st0;
-tr28:
-#line 7 "cson.rl"
+tr29:
+#line 29 "cson.rl"
 	{
-        value = value * 10 + ((*p) - '0');
+        track[track_size++] = (track_sum += value);
+        value = 0;
     }
 	goto st29;
 st29:
 	if ( ++p == pe )
 		goto _test_eof29;
 case 29:
-#line 296 "cson.c"
-	switch( (*p) ) {
-		case 44: goto tr30;
-		case 93: goto tr31;
-	}
-	if ( 48 <= (*p) && (*p) <= 57 )
-		goto tr28;
+#line 331 "cson.c"
+	if ( (*p) == 125 )
+		goto st30;
 	goto st0;
-tr30:
-#line 16 "cson.rl"
-	{
-        cson->track[cson->track_size++] = cson->track[cson->track_size - 1] + value;
-        value = 0;
-    }
-	goto st30;
 st30:
 	if ( ++p == pe )
 		goto _test_eof30;
 case 30:
-#line 315 "cson.c"
-	if ( 48 <= (*p) && (*p) <= 57 )
-		goto tr28;
-	goto st0;
-tr31:
-#line 16 "cson.rl"
-	{
-        cson->track[cson->track_size++] = cson->track[cson->track_size - 1] + value;
-        value = 0;
-    }
-	goto st31;
-st31:
-	if ( ++p == pe )
-		goto _test_eof31;
-case 31:
-#line 330 "cson.c"
-	if ( (*p) == 125 )
-		goto st32;
-	goto st0;
-st32:
-	if ( ++p == pe )
-		goto _test_eof32;
-case 32:
 	goto st0;
 	}
 	_test_eof2: cs = 2; goto _test_eof; 
@@ -365,18 +366,20 @@ case 32:
 	_test_eof28: cs = 28; goto _test_eof; 
 	_test_eof29: cs = 29; goto _test_eof; 
 	_test_eof30: cs = 30; goto _test_eof; 
-	_test_eof31: cs = 31; goto _test_eof; 
-	_test_eof32: cs = 32; goto _test_eof; 
 
 	_test_eof: {}
 	_out: {}
 	}
 
-#line 66 "cson.rl"
+#line 88 "cson.rl"
 
     cson->_cs = cs;
     cson->_value = value;
-    return p - buf;
-}
+    cson->_item_start = item_start;
+    cson->_track_sum = track_sum;
 
-void cson_free(cson_t *cson) { }
+    cson->items_size = items_size;
+    cson->track_size = track_size;
+
+    return p;
+}

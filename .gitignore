@@ -1,6 +1,8 @@
+*.gcda
 *.o
 *.so
 *.zip
 __pycache__
+callgrind.*
 default.profdata
 default.profraw

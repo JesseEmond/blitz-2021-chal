@@ -8,7 +8,6 @@
 #include <unistd.h>
 
 #include "cson.h"
-#include "prof.h"
 
 
 int http_server(const int port) {
@@ -86,10 +85,9 @@ void send_bad_request(const int sockfd) {
 
 // TODO: This is shitty, we can parse in the data buffer and realloc to save on recv's
 ssize_t recvline(const int sockfd, char *buf, const size_t len) {
-    PROF_START(recvline);
     char c;
     size_t i = 0;
-    while (i < len - 1) {
+    while (i < len) {
         ssize_t n = recv(sockfd, &c, 1, 0);
         if (n < 0) {
             return -1;
@@ -101,15 +99,12 @@ ssize_t recvline(const int sockfd, char *buf, const size_t len) {
             break;
         }
     }
-    PROF_END(recvline, 1000);
     return i;
 }
 
 int recv_challenge(const int sockfd, cson_t *cson) {
-    PROF_START(request);
     // NOTE: Welcome to Assumption-Land(tm)
 
-    PROF_START(header);
     // Deal with the request line
     ssize_t n = 0;
     char buf[2048];
@@ -125,13 +120,8 @@ int recv_challenge(const int sockfd, cson_t *cson) {
 
     // Assume challenge request starting here
 
-    // Quickly check for a POST to make sure we can expect a body
-    if (buf[0] != 'P') {
-        send_bad_request(sockfd);
-        return -1;
-    }
-
     // Consume headers and "parse" the Content-Length
+    // FIXME We can probably do better here by requesting a chunk and parsing instead of by-line
     size_t datalen = 0;
     for (;;) {
         if ((n = recvline(sockfd, buf, sizeof(buf))) <= 0) {
@@ -151,9 +141,7 @@ int recv_challenge(const int sockfd, cson_t *cson) {
         send_bad_request(sockfd);
         return -1;
     }
-    PROF_END(header, 50);
 
-    PROF_START(body);
     char* data = malloc(datalen);
     if (data == NULL) {
         exit(1);
@@ -161,21 +149,17 @@ int recv_challenge(const int sockfd, cson_t *cson) {
     char *p = data, *d = data;
     cson_init(cson);
     while (datalen > 0) {
-        if ((n = recv(sockfd, d, datalen < TCP_MAXWIN ? datalen : TCP_MAXWIN, 0)) < 0) {
+        if ((n = recv(sockfd, d, datalen, 0)) < 0) {
             send_bad_request(sockfd);
-            cson_free(cson);
             free(data);
             return -1;
         }
         datalen -= n;
-        d += n;
-        p += cson_update(cson, p, d - p);
+        p = cson_parse(cson, p, (d += n));
     }
 
     free(data);
-    PROF_END(body, 50);
 
-    PROF_END(request, 50);
     return 0;
 }
 
