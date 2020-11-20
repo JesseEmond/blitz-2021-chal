@@ -10,10 +10,6 @@
 #include "server.h"
 
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 int solve(int sockfd, cson_t *cson) {
     // Guess is as follow, 512 extra + (number of queries (aka items / 2) * (8 digits max + comma))
     size_t guess = 512 + ((cson->items_size / 2) * (8 + 1));
@@ -27,14 +23,7 @@ int solve(int sockfd, cson_t *cson) {
     unsigned int *items = cson->items;
     unsigned int *track = cson->track;
     for (size_t i = 0; i < length; i += 2) {
-        size_t s = items[i], e = items[i + 1];
-        if (s > e) {
-            // XOR swap and temp var both produce identical assembly, the compiler knows.
-            s ^= e;
-            e ^= s;
-            s ^= e;
-        }
-        unsigned int dist = track[e] - track[s];
+        unsigned int dist = track[items[i + 1]] - track[items[i]];
         if (dist > NUMBERS_MAX) {
             // Try to get the compiler to do x86 `div` or something (it generates imul, weird, but whatever)
             unsigned int div = dist / (NUMBERS_MAX + 1), mod = dist % (NUMBERS_MAX + 1);
@@ -52,11 +41,18 @@ int solve(int sockfd, cson_t *cson) {
     buf[0] = '[';
     p[-1] = ']';
 
-    send_response(sockfd, buf, p - buf);
+    if (send_response(sockfd, buf, p - buf) < 0) {
+        free(buf);
+        return -1;
+    }
 
     free(buf);
     return 0;
 }
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 void launch(const int port, const int exit_early) {
     int servfd = http_server(port);
@@ -65,7 +61,7 @@ void launch(const int port, const int exit_early) {
     }
     printf("Listening on port %d\n", port);
 
-    for (;;) {
+    do {
         int sockfd = accept_client(servfd);
         if (sockfd < 0) {
             if (errno == EINTR) {
@@ -80,17 +76,13 @@ void launch(const int port, const int exit_early) {
             if (recv_challenge(sockfd, &cson) < 0) {
                 break;
             }
-            solve(sockfd, &cson);
-            cson_free(&cson);
-
+            if (solve(sockfd, &cson) < 0) {
+                break;
+            }
         }
 
         close(sockfd);
-
-        if (exit_early) {
-            break;
-        }
-    }
+    } while (!exit_early);
 
     close(servfd);
 }

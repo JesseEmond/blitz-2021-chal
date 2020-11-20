@@ -121,6 +121,7 @@ int recv_challenge(const int sockfd, cson_t *cson) {
     // Assume challenge request starting here
 
     // Consume headers and "parse" the Content-Length
+    // FIXME We can probably do better here by requesting a chunk and parsing instead of by-line
     size_t datalen = 0;
     for (;;) {
         if ((n = recvline(sockfd, buf, sizeof(buf))) <= 0) {
@@ -150,13 +151,11 @@ int recv_challenge(const int sockfd, cson_t *cson) {
     while (datalen > 0) {
         if ((n = recv(sockfd, d, datalen, 0)) < 0) {
             send_bad_request(sockfd);
-            cson_free(cson);
             free(data);
             return -1;
         }
         datalen -= n;
-        d += n;
-        p += cson_update(cson, p, d - p);
+        p = cson_parse(cson, p, (d += n));
     }
 
     free(data);
