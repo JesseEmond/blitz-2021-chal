@@ -84,7 +84,7 @@
 //  - The `start < end` check is done at parse time due to cache locality of
 //    the values at that time.
 //  - We rely on the receiving end ignoring whitespace in our JSON output, the
-//    `numbers.h` will left-pad digits with a spaces in groups of 4.
+//    `numbers.h` will left-pad digits with spaces in groups of 4.
 //
 // Things to check to improve speed:
 //  - Using SIMD to parse both in and out of the queries at one.
@@ -92,7 +92,7 @@
 //  - The `numbers.h` serialization speedup is questionable due to likely cache
 //    miss.
 //
-// TODO Add individual part buffers
+// TODO Add individual part benchmarks
 
 
 // ==============
