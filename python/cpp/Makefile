@@ -29,7 +29,7 @@ clean:
 	rm -f $(TARGET) *.o
 
 scrub: clean
-	rm -f cson.c *.gcda
+	rm -f cson.c server.c *.gcda
 
 $(TARGET): $(OBJS)
 	$(LD) $(CFLAGS) $(LDFLAGS) $(PROFFLAGS) $^ -o $@
@@ -38,4 +38,7 @@ $(TARGET): $(OBJS)
 	$(CC) $(CCFLAGS) $(PROFFLAGS) -c $< -o $@
 
 cson.c: cson.rl
+	$(RL) $(RLFLAGS) -o $@ $<
+
+server.c: server.rl
 	$(RL) $(RLFLAGS) -o $@ $<

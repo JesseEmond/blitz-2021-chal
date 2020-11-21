@@ -52,9 +52,9 @@
     cson = obj_s items_key items sep track_key track obj_e;
 
     main := cson;
-}%%
 
-%% write data noerror nofinal noentry;
+    write data noerror nofinal noentry;
+}%%
 
 void cson_init(cson_t *cson) {
     int cs;

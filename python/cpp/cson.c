@@ -4,21 +4,18 @@
 
 
 
-#line 55 "cson.rl"
-
-
-
-#line 12 "cson.c"
+#line 8 "cson.c"
 static const int cson_start = 1;
 
 
-#line 58 "cson.rl"
+#line 57 "cson.rl"
+
 
 void cson_init(cson_t *cson) {
     int cs;
 
     
-#line 22 "cson.c"
+#line 19 "cson.c"
 	{
 	cs = cson_start;
 	}
@@ -49,7 +46,7 @@ char *cson_parse(cson_t *cson, const char *start, const char *end) {
     char *p = (char*) start;
     char *pe = (char*) end;;
     
-#line 53 "cson.c"
+#line 50 "cson.c"
 	{
 	if ( p == pe )
 		goto _test_eof;
@@ -150,7 +147,7 @@ st13:
 	if ( ++p == pe )
 		goto _test_eof13;
 case 13:
-#line 154 "cson.c"
+#line 151 "cson.c"
 	if ( (*p) == 44 )
 		goto tr13;
 	if ( 48 <= (*p) && (*p) <= 57 )
@@ -167,7 +164,7 @@ st14:
 	if ( ++p == pe )
 		goto _test_eof14;
 case 14:
-#line 171 "cson.c"
+#line 168 "cson.c"
 	if ( 48 <= (*p) && (*p) <= 57 )
 		goto tr14;
 	goto st0;
@@ -182,7 +179,7 @@ st15:
 	if ( ++p == pe )
 		goto _test_eof15;
 case 15:
-#line 186 "cson.c"
+#line 183 "cson.c"
 	if ( (*p) == 93 )
 		goto tr15;
 	if ( 48 <= (*p) && (*p) <= 57 )
@@ -206,7 +203,7 @@ st16:
 	if ( ++p == pe )
 		goto _test_eof16;
 case 16:
-#line 210 "cson.c"
+#line 207 "cson.c"
 	switch( (*p) ) {
 		case 44: goto st11;
 		case 93: goto st17;
@@ -293,7 +290,7 @@ st27:
 	if ( ++p == pe )
 		goto _test_eof27;
 case 27:
-#line 297 "cson.c"
+#line 294 "cson.c"
 	if ( 48 <= (*p) && (*p) <= 57 )
 		goto tr27;
 	goto st0;
@@ -308,7 +305,7 @@ st28:
 	if ( ++p == pe )
 		goto _test_eof28;
 case 28:
-#line 312 "cson.c"
+#line 309 "cson.c"
 	switch( (*p) ) {
 		case 44: goto tr28;
 		case 93: goto tr29;
@@ -327,7 +324,7 @@ st29:
 	if ( ++p == pe )
 		goto _test_eof29;
 case 29:
-#line 331 "cson.c"
+#line 328 "cson.c"
 	if ( (*p) == 125 )
 		goto st30;
 	goto st0;
