@@ -16,8 +16,7 @@
 static const int http_request_start = 1;
 
 
-#line 44 "server.rl"
-
+#line 41 "server.rl"
 
 
 int http_server(const int port) {
@@ -80,6 +79,7 @@ void sflush(const int sockfd) {
 }
 
 void quickack(const int sockfd) {
+    // Force ACK anything pending
     const int on = 1;
     setsockopt(sockfd, IPPROTO_TCP, TCP_QUICKACK, &on, sizeof(on));
 }
@@ -101,8 +101,8 @@ void send_bad_request(const int sockfd) {
 }
 
 int recv_challenge(const int sockfd, cson_t *cson) {
-    const size_t MAX_SIZE = 2 * 1024 * 1024; // 2MB
-    char *buffer = malloc(MAX_SIZE);
+    const size_t BUFFER_SIZE = 2 * 1024 * 1024; // 2MB
+    char *buffer = malloc(BUFFER_SIZE);
     if (buffer == NULL) {
         return -1;
     }
@@ -115,13 +115,13 @@ int recv_challenge(const int sockfd, cson_t *cson) {
 	cs = http_request_start;
 	}
 
-#line 137 "server.rl"
+#line 134 "server.rl"
 
     ssize_t n = 0;
     size_t bodylen = 0;
-    size_t space = MAX_SIZE;
+    size_t space = BUFFER_SIZE;
     char *p = buffer, *pe = buffer;
-    while (cs < 34 && space > 0 && (n = recv(sockfd, pe, space, 0)) > 0) {
+    while (cs < 33 && space > 0 && (n = recv(sockfd, pe, space, 0)) > 0) {
         quickack(sockfd);
         space -= n;
         pe += n;
@@ -136,7 +136,7 @@ int recv_challenge(const int sockfd, cson_t *cson) {
 case 1:
 	switch( (*p) ) {
 		case 71: goto st2;
-		case 80: goto st30;
+		case 80: goto st29;
 	}
 	goto st0;
 st0:
@@ -199,83 +199,75 @@ st8:
 	if ( ++p == pe )
 		goto _test_eof8;
 case 8:
-	switch( (*p) ) {
-		case 67: goto st14;
-		case 99: goto st14;
-	}
-	if ( (*p) > 57 ) {
-		if ( 59 <= (*p) && (*p) <= 126 )
-			goto st9;
-	} else if ( (*p) >= 33 )
+	if ( (*p) == 67 )
+		goto st13;
+	if ( 32 <= (*p) && (*p) <= 126 )
 		goto st9;
 	goto st0;
 st9:
 	if ( ++p == pe )
 		goto _test_eof9;
 case 9:
-	if ( (*p) == 58 )
+	if ( (*p) == 13 )
 		goto st10;
-	if ( 33 <= (*p) && (*p) <= 126 )
+	if ( 32 <= (*p) && (*p) <= 126 )
 		goto st9;
 	goto st0;
 st10:
 	if ( ++p == pe )
 		goto _test_eof10;
 case 10:
-	if ( (*p) == 13 )
+	if ( (*p) == 10 )
 		goto st11;
-	if ( 32 <= (*p) && (*p) <= 126 )
-		goto st10;
 	goto st0;
 st11:
 	if ( ++p == pe )
 		goto _test_eof11;
 case 11:
-	if ( (*p) == 10 )
-		goto st12;
+	switch( (*p) ) {
+		case 13: goto st12;
+		case 67: goto st13;
+	}
+	if ( 32 <= (*p) && (*p) <= 126 )
+		goto st9;
 	goto st0;
 st12:
 	if ( ++p == pe )
 		goto _test_eof12;
 case 12:
-	switch( (*p) ) {
-		case 13: goto st13;
-		case 67: goto st14;
-		case 99: goto st14;
-	}
-	if ( (*p) > 57 ) {
-		if ( 59 <= (*p) && (*p) <= 126 )
-			goto st9;
-	} else if ( (*p) >= 33 )
-		goto st9;
+	if ( (*p) == 10 )
+		goto tr14;
+	goto st0;
+tr14:
+#line 38 "server.rl"
+	{ {p++; cs = 33; goto _out;} }
+	goto st33;
+st33:
+	if ( ++p == pe )
+		goto _test_eof33;
+case 33:
+#line 250 "server.c"
 	goto st0;
 st13:
 	if ( ++p == pe )
 		goto _test_eof13;
 case 13:
-	if ( (*p) == 10 )
-		goto tr15;
-	goto st0;
-tr15:
-#line 41 "server.rl"
-	{ {p++; cs = 34; goto _out;} }
-	goto st34;
-st34:
-	if ( ++p == pe )
-		goto _test_eof34;
-case 34:
-#line 268 "server.c"
+	switch( (*p) ) {
+		case 13: goto st10;
+		case 111: goto st14;
+	}
+	if ( 32 <= (*p) && (*p) <= 126 )
+		goto st9;
 	goto st0;
 st14:
 	if ( ++p == pe )
 		goto _test_eof14;
 case 14:
 	switch( (*p) ) {
-		case 58: goto st10;
-		case 79: goto st15;
-		case 111: goto st15;
+		case 13: goto st10;
+		case 110: goto st15;
 	}
-	if ( 33 <= (*p) && (*p) <= 126 )
+	if ( 32 <= (*p) && (*p) <= 126 )
 		goto st9;
 	goto st0;
 st15:
@@ -283,11 +275,10 @@ st15:
 		goto _test_eof15;
 case 15:
 	switch( (*p) ) {
-		case 58: goto st10;
-		case 78: goto st16;
-		case 110: goto st16;
+		case 13: goto st10;
+		case 116: goto st16;
 	}
-	if ( 33 <= (*p) && (*p) <= 126 )
+	if ( 32 <= (*p) && (*p) <= 126 )
 		goto st9;
 	goto st0;
 st16:
@@ -295,11 +286,10 @@ st16:
 		goto _test_eof16;
 case 16:
 	switch( (*p) ) {
-		case 58: goto st10;
-		case 84: goto st17;
-		case 116: goto st17;
+		case 13: goto st10;
+		case 101: goto st17;
 	}
-	if ( 33 <= (*p) && (*p) <= 126 )
+	if ( 32 <= (*p) && (*p) <= 126 )
 		goto st9;
 	goto st0;
 st17:
@@ -307,11 +297,10 @@ st17:
 		goto _test_eof17;
 case 17:
 	switch( (*p) ) {
-		case 58: goto st10;
-		case 69: goto st18;
-		case 101: goto st18;
+		case 13: goto st10;
+		case 110: goto st18;
 	}
-	if ( 33 <= (*p) && (*p) <= 126 )
+	if ( 32 <= (*p) && (*p) <= 126 )
 		goto st9;
 	goto st0;
 st18:
@@ -319,11 +308,10 @@ st18:
 		goto _test_eof18;
 case 18:
 	switch( (*p) ) {
-		case 58: goto st10;
-		case 78: goto st19;
-		case 110: goto st19;
+		case 13: goto st10;
+		case 116: goto st19;
 	}
-	if ( 33 <= (*p) && (*p) <= 126 )
+	if ( 32 <= (*p) && (*p) <= 126 )
 		goto st9;
 	goto st0;
 st19:
@@ -331,11 +319,10 @@ st19:
 		goto _test_eof19;
 case 19:
 	switch( (*p) ) {
-		case 58: goto st10;
-		case 84: goto st20;
-		case 116: goto st20;
+		case 13: goto st10;
+		case 45: goto st20;
 	}
-	if ( 33 <= (*p) && (*p) <= 126 )
+	if ( 32 <= (*p) && (*p) <= 126 )
 		goto st9;
 	goto st0;
 st20:
@@ -343,10 +330,10 @@ st20:
 		goto _test_eof20;
 case 20:
 	switch( (*p) ) {
-		case 45: goto st21;
-		case 58: goto st10;
+		case 13: goto st10;
+		case 76: goto st21;
 	}
-	if ( 33 <= (*p) && (*p) <= 126 )
+	if ( 32 <= (*p) && (*p) <= 126 )
 		goto st9;
 	goto st0;
 st21:
@@ -354,11 +341,10 @@ st21:
 		goto _test_eof21;
 case 21:
 	switch( (*p) ) {
-		case 58: goto st10;
-		case 76: goto st22;
-		case 108: goto st22;
+		case 13: goto st10;
+		case 101: goto st22;
 	}
-	if ( 33 <= (*p) && (*p) <= 126 )
+	if ( 32 <= (*p) && (*p) <= 126 )
 		goto st9;
 	goto st0;
 st22:
@@ -366,11 +352,10 @@ st22:
 		goto _test_eof22;
 case 22:
 	switch( (*p) ) {
-		case 58: goto st10;
-		case 69: goto st23;
-		case 101: goto st23;
+		case 13: goto st10;
+		case 110: goto st23;
 	}
-	if ( 33 <= (*p) && (*p) <= 126 )
+	if ( 32 <= (*p) && (*p) <= 126 )
 		goto st9;
 	goto st0;
 st23:
@@ -378,11 +363,10 @@ st23:
 		goto _test_eof23;
 case 23:
 	switch( (*p) ) {
-		case 58: goto st10;
-		case 78: goto st24;
-		case 110: goto st24;
+		case 13: goto st10;
+		case 103: goto st24;
 	}
-	if ( 33 <= (*p) && (*p) <= 126 )
+	if ( 32 <= (*p) && (*p) <= 126 )
 		goto st9;
 	goto st0;
 st24:
@@ -390,11 +374,10 @@ st24:
 		goto _test_eof24;
 case 24:
 	switch( (*p) ) {
-		case 58: goto st10;
-		case 71: goto st25;
-		case 103: goto st25;
+		case 13: goto st10;
+		case 116: goto st25;
 	}
-	if ( 33 <= (*p) && (*p) <= 126 )
+	if ( 32 <= (*p) && (*p) <= 126 )
 		goto st9;
 	goto st0;
 st25:
@@ -402,11 +385,10 @@ st25:
 		goto _test_eof25;
 case 25:
 	switch( (*p) ) {
-		case 58: goto st10;
-		case 84: goto st26;
-		case 116: goto st26;
+		case 13: goto st10;
+		case 104: goto st26;
 	}
-	if ( 33 <= (*p) && (*p) <= 126 )
+	if ( 32 <= (*p) && (*p) <= 126 )
 		goto st9;
 	goto st0;
 st26:
@@ -414,87 +396,77 @@ st26:
 		goto _test_eof26;
 case 26:
 	switch( (*p) ) {
-		case 58: goto st10;
-		case 72: goto st27;
-		case 104: goto st27;
+		case 13: goto st10;
+		case 58: goto st27;
 	}
-	if ( 33 <= (*p) && (*p) <= 126 )
+	if ( 32 <= (*p) && (*p) <= 126 )
 		goto st9;
 	goto st0;
 st27:
 	if ( ++p == pe )
 		goto _test_eof27;
 case 27:
-	if ( (*p) == 58 )
-		goto st28;
-	if ( 33 <= (*p) && (*p) <= 126 )
-		goto st9;
-	goto st0;
-st28:
-	if ( ++p == pe )
-		goto _test_eof28;
-case 28:
 	switch( (*p) ) {
-		case 13: goto st11;
-		case 32: goto st28;
+		case 13: goto st10;
+		case 32: goto st27;
 	}
 	if ( (*p) < 48 ) {
 		if ( 33 <= (*p) && (*p) <= 47 )
-			goto st10;
+			goto st9;
 	} else if ( (*p) > 57 ) {
 		if ( 58 <= (*p) && (*p) <= 126 )
-			goto st10;
+			goto st9;
 	} else
-		goto tr30;
+		goto tr29;
 	goto st0;
-tr30:
+tr29:
 #line 21 "server.rl"
 	{
         bodylen *= 10;
         bodylen += (*p) - '0';
     }
-	goto st29;
+	goto st28;
+st28:
+	if ( ++p == pe )
+		goto _test_eof28;
+case 28:
+#line 434 "server.c"
+	if ( (*p) == 13 )
+		goto st10;
+	if ( (*p) < 48 ) {
+		if ( 32 <= (*p) && (*p) <= 47 )
+			goto st9;
+	} else if ( (*p) > 57 ) {
+		if ( 58 <= (*p) && (*p) <= 126 )
+			goto st9;
+	} else
+		goto tr29;
+	goto st0;
 st29:
 	if ( ++p == pe )
 		goto _test_eof29;
 case 29:
-#line 462 "server.c"
-	if ( (*p) == 13 )
-		goto st11;
-	if ( (*p) < 48 ) {
-		if ( 32 <= (*p) && (*p) <= 47 )
-			goto st10;
-	} else if ( (*p) > 57 ) {
-		if ( 58 <= (*p) && (*p) <= 126 )
-			goto st10;
-	} else
-		goto tr30;
+	if ( (*p) == 79 )
+		goto st30;
 	goto st0;
 st30:
 	if ( ++p == pe )
 		goto _test_eof30;
 case 30:
-	if ( (*p) == 79 )
+	if ( (*p) == 83 )
 		goto st31;
 	goto st0;
 st31:
 	if ( ++p == pe )
 		goto _test_eof31;
 case 31:
-	if ( (*p) == 83 )
+	if ( (*p) == 84 )
 		goto st32;
 	goto st0;
 st32:
 	if ( ++p == pe )
 		goto _test_eof32;
 case 32:
-	if ( (*p) == 84 )
-		goto st33;
-	goto st0;
-st33:
-	if ( ++p == pe )
-		goto _test_eof33;
-case 33:
 	if ( (*p) == 32 )
 		goto st5;
 	goto st0;
@@ -510,8 +482,8 @@ case 33:
 	_test_eof10: cs = 10; goto _test_eof; 
 	_test_eof11: cs = 11; goto _test_eof; 
 	_test_eof12: cs = 12; goto _test_eof; 
+	_test_eof33: cs = 33; goto _test_eof; 
 	_test_eof13: cs = 13; goto _test_eof; 
-	_test_eof34: cs = 34; goto _test_eof; 
 	_test_eof14: cs = 14; goto _test_eof; 
 	_test_eof15: cs = 15; goto _test_eof; 
 	_test_eof16: cs = 16; goto _test_eof; 
@@ -531,16 +503,14 @@ case 33:
 	_test_eof30: cs = 30; goto _test_eof; 
 	_test_eof31: cs = 31; goto _test_eof; 
 	_test_eof32: cs = 32; goto _test_eof; 
-	_test_eof33: cs = 33; goto _test_eof; 
 
 	_test_eof: {}
 	_out: {}
 	}
 
-#line 148 "server.rl"
+#line 145 "server.rl"
     }
-
-    if (cs < 34 || bodylen + (p - buffer) > MAX_SIZE) {
+    if (cs < 33 || bodylen + (p - buffer) > BUFFER_SIZE) {
         send_bad_request(sockfd);
         free(buffer);
         return -1;
@@ -548,11 +518,9 @@ case 33:
 
     cson_init(cson);
 
-    if (p != pe) {
-        // Process the pre-loaded body chunk
-        bodylen -= pe - p;
-        p = cson_parse(cson, p, pe);
-    }
+    // Process the pre-loaded body chunk
+    bodylen -= pe - p;
+    p = cson_parse(cson, p, pe);
     while (bodylen > 0) {
         if ((n = recv(sockfd, pe, bodylen, 0)) < 0) {
             send_bad_request(sockfd);

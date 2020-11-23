@@ -27,11 +27,8 @@
 
     method = "GET" %handle_get | "POST";
 
-    hsep = ":" " "*;
-    field_name = ( graph -- ":" )+;
-    field_value = print*;
-    header = ( ( "Content-Length"i hsep digit+ $content_length )
-             | ( field_name hsep field_value )
+    header = ( ( "Content-Length" ":" " "* digit+ $content_length )
+             | ( print+ )
              ) :> CRLF;
 
     request_line = method " " print+ CRLF;
@@ -42,7 +39,6 @@
 
     write data noerror nofinal noentry;
 }%%
-
 
 int http_server(const int port) {
     const int servfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -104,6 +100,7 @@ void sflush(const int sockfd) {
 }
 
 void quickack(const int sockfd) {
+    // Force ACK anything pending
     const int on = 1;
     setsockopt(sockfd, IPPROTO_TCP, TCP_QUICKACK, &on, sizeof(on));
 }
@@ -125,8 +122,8 @@ void send_bad_request(const int sockfd) {
 }
 
 int recv_challenge(const int sockfd, cson_t *cson) {
-    const size_t MAX_SIZE = 2 * 1024 * 1024; // 2MB
-    char *buffer = malloc(MAX_SIZE);
+    const size_t BUFFER_SIZE = 2 * 1024 * 1024; // 2MB
+    char *buffer = malloc(BUFFER_SIZE);
     if (buffer == NULL) {
         return -1;
     }
@@ -137,7 +134,7 @@ int recv_challenge(const int sockfd, cson_t *cson) {
 
     ssize_t n = 0;
     size_t bodylen = 0;
-    size_t space = MAX_SIZE;
+    size_t space = BUFFER_SIZE;
     char *p = buffer, *pe = buffer;
     while (cs < %%{ write first_final; }%% && space > 0 && (n = recv(sockfd, pe, space, 0)) > 0) {
         quickack(sockfd);
@@ -146,8 +143,7 @@ int recv_challenge(const int sockfd, cson_t *cson) {
 
         %% write exec;
     }
-
-    if (cs < %%{ write first_final; }%% || bodylen + (p - buffer) > MAX_SIZE) {
+    if (cs < %%{ write first_final; }%% || bodylen + (p - buffer) > BUFFER_SIZE) {
         send_bad_request(sockfd);
         free(buffer);
         return -1;
@@ -155,11 +151,9 @@ int recv_challenge(const int sockfd, cson_t *cson) {
 
     cson_init(cson);
 
-    if (p != pe) {
-        // Process the pre-loaded body chunk
-        bodylen -= pe - p;
-        p = cson_parse(cson, p, pe);
-    }
+    // Process the pre-loaded body chunk
+    bodylen -= pe - p;
+    p = cson_parse(cson, p, pe);
     while (bodylen > 0) {
         if ((n = recv(sockfd, pe, bodylen, 0)) < 0) {
             send_bad_request(sockfd);
