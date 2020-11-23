@@ -1,11 +1,13 @@
 CC := gcc
+CXX := g++
 RL := ragel
-LD := gcc
+LD := g++
 
 # The challenge VM runs with a 1 core 2 thread Xeon Platinum 8259CL, that's a Cascade Lake chip
 # Switch to -march=native if the output doesn't run on your arch, revert for challenge build
 CFLAGS = -g -Wall -Ofast -fPIC -frename-registers -msse -msse2 -msse3 -mmmx -m3dnow -DNDEBUG -march=cascadelake
-CCFLAGS = $(CFLAGS)
+CCFLAGS =
+CXXFLAGS =
 RLFLAGS = -G2
 LDFLAGS = -shared
 
@@ -35,7 +37,7 @@ $(TARGET): $(OBJS)
 	$(LD) $(CFLAGS) $(LDFLAGS) $(PROFFLAGS) $^ -o $@
 
 %.c.o: %.c
-	$(CC) $(CCFLAGS) $(PROFFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) $(CCFLAGS) $(PROFFLAGS) -c $< -o $@
 
 cson.c: cson.rl
 	$(RL) $(RLFLAGS) -o $@ $<
