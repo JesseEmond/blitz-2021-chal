@@ -102,7 +102,7 @@ ssize_t recvline(const int sockfd, char *buf, const size_t len) {
     return i;
 }
 
-int recv_challenge(const int sockfd, cson_t *cson) {
+int recv_challenge(const int sockfd, const char** chal, size_t* chal_len) {
     // NOTE: Welcome to Assumption-Land(tm)
 
     // Deal with the request line
@@ -142,23 +142,18 @@ int recv_challenge(const int sockfd, cson_t *cson) {
         return -1;
     }
 
-    char* data = malloc(datalen);
-    if (data == NULL) {
-        exit(1);
-    }
-    char *p = data, *d = data;
-    cson_init(cson);
+    static char data[10 * 1024 * 1024];
+    char *d = data;
+    *chal = data;
+    *chal_len = datalen;
     while (datalen > 0) {
         if ((n = recv(sockfd, d, datalen, 0)) < 0) {
             send_bad_request(sockfd);
-            free(data);
             return -1;
         }
         datalen -= n;
-        p = cson_parse(cson, p, (d += n));
+        d += n;
     }
-
-    free(data);
 
     return 0;
 }

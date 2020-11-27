@@ -53,7 +53,8 @@ def benchmark(verify):
             time_ms = sample_times[len(sample_times)//2]
             score = sample_scores[len(sample_scores)//2]
             print(f'  Challenge #{idx+1}: {len(challenge["track"])} track length,  '
-                  f'{len(challenge["items"])} queries,   '
+                  f'{len(challenge["items"])} queries,  '
+                  f'{len(chal_data)} bytes  '
                   f'time: {time_ms:.4f}ms,   score: {score:.4f}')
             if verify:
                 real_sln = slow_solve(challenge)

@@ -17,9 +17,11 @@ typedef struct cson {
     unsigned int _item_start;
     unsigned int _track_sum;
 
-    unsigned int items[ITEMS_MAX * 2];
+    //unsigned int items[ITEMS_MAX * 2];
+    unsigned int* items;
     size_t items_size;
-    unsigned int track[TRACK_MAX + 1];
+    //unsigned int track[TRACK_MAX + 1];
+    unsigned int* track;
     size_t track_size;
 } cson_t;
 
