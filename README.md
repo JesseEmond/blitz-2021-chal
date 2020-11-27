@@ -152,6 +152,9 @@ which would then take over, bind to the port, and take care of replying to the t
 
 So we wrote a very hard-coded HTTP server filled with assumptions to speed things up.
 
+Funnily enough, at some point a member of the `PinaAplle` team and asked us what language we were using, to which we
+replied `... Python, you?`, to which they replied `... Python`, and we both knew exactly what we meant by that. :)
+
 From there, the fact that we had to read/write more than a megabyte of data for some challenges
 (e.g. `2*100k ints for queries` with a lot of separators) meant that it would probably be worth reading the input in chunks,
 making use of a [state machine](http://www.colm.net/open-source/ragel/) to process a chunk at a time while the data was still
