@@ -163,7 +163,7 @@ in-flight.
 
 Here's what the state machine looked like:
 
-![State Machine](./python/cson.svg)
+![State Machine diagram](./python/cson.svg)
 
 TODO(will): numbers.h
 
@@ -175,6 +175,8 @@ once (even with unknown int lengths): [details](http://0x80.pl/articles/simd-par
 as cool as that idea was, it ended up being slower (maybe because we did it by reading all the data at once and then
 parsing with SIMD, instead of still doing our chunked parsing?)
 
+## Conclusion
+
 All these ideas ended us with a final score of `224.92` points (`80ms` to solve all challenges), and first place in
 the registration challenge. This was a super fun challenge. It was surprising that the difficulty lied completely
 outside of the problem we had to solve, but was still very interesting and we learned quite a bit.
@@ -182,7 +184,9 @@ outside of the problem we had to solve, but was still very interesting and we le
 It's great that we start from 3 lines of Python (200 pts) and end up with a trampoline Python that just launches a C++
 hard-coded HTTP server with raw sockets that works hard to extract ints out of JSON continuously with a state machine,
 does a tiny bit of work with them (what we're really supposed to solve), and outputs back a string as fast as possible,
-all for an extra `24.92 pts` on the scoreboard.
+all for an extra `24.92 pts` on the scoreboard:
+
+![Oh how far we've come](https://media.giphy.com/media/l0IylOPCNkiqOgMyA/giphy.gif)
 
 # Development
 
