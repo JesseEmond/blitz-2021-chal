@@ -83,7 +83,7 @@ So we added print statements to our program to output each challenge on the serv
 2 sets of 75 challenges to a file. We then wrote a local benchmarking tool that contacts our server (locally) and runs each challenge
 multiple times and reports the median speed (see [`benchmark`](./benchmark)) for all to estimate what score we'd get.
 
-Additionally, we found out here that the structure of the challenges is very regular:
+Additionally, we found out here that the structure of the 75 challenges is very regular:
 ```
 Challenges:
 1x   track size 10,   10   queries
@@ -106,10 +106,10 @@ track 200,   queries 100000: 3.67ms  2.99pts
 track 10000, queries 10000:  1.32ms  3.00pts
 ```
 
-So we can see that speeding up the 100k queries use-case is worth it, for example...
+So we can see that speeding up the 100k queries use-case is worth it, for example.
 
 ## Python-ish
-At this point, iterating over 100k integers and outputing a list of 100k elements in Python isn't free:
+At this point, iterating over 100k queries and outputing a list of 100k elements in Python isn't free:
 ```
 > python3 -m timeit '[x for x in range(100000)]'
 50 loops, best of 5: 5.89 msec per loop
@@ -123,8 +123,9 @@ we baked in a lot of assumptions about the format to directly extract just a lon
 down into track/items.
 
 A couple of optimizations from there:
-- Manually reading numbers in a hard-coded while-loop was faster than using std calls (we can bake in our assumptions);
-- Everything is single-thread, so we can use static memory instead of allocating on-the-fly;
+- Manually reading numbers in a hard-coded while-loop was faster than using std calls (we can bake in our assumptions,
+  namely unsigned ints of max 6 digits in practice);
+- Challenges are sequential, so we can use static memory & reuse instead of allocating on-the-fly;
 - Compiling once with [`PGO`](https://en.wikipedia.org/wiki/Profile-guided_optimization) to gather run-time information
   to guide optimization the next time we compile.
 
@@ -152,8 +153,8 @@ which would then take over, bind to the port, and take care of replying to the t
 
 So we wrote a very hard-coded HTTP server filled with assumptions to speed things up.
 
-Funnily enough, at some point a member of the `PinaAplle` team and asked us what language we were using, to which we
-replied `... Python, you?`, to which they replied `... Python`, and we both knew exactly what we meant by that. :)
+Funnily enough, at some point a member of the `PinaAplle` team reached out and asked us what language we were using, to
+which we replied `... Python, you?`, to which they replied `... Python`, and we both knew exactly what we meant by that. :)
 
 From there, the fact that we had to read/write more than a megabyte of data for some challenges
 (e.g. `2*100k ints for queries` with a lot of separators) meant that it would probably be worth reading the input in chunks,
@@ -165,20 +166,23 @@ Here's what the state machine looked like:
 ![State Machine](./python/cson.svg)
 
 TODO(will): numbers.h
+
 TODO(will): analysis of cache hits/misses
 
 One very cool idea that we [read about](https://kholdstare.github.io/technical/2020/05/26/faster-integer-parsing.html)
 to quickly parse the data to ints (one of our bigger bottlenecks), was the use of SIMD to parse multiple characters at
-once (even with unknown int lengths): [details](http://0x80.pl/articles/simd-parsing-int-sequences.html). Unfortunately, to
-do so we had to read all the data at once (hence get rid of continuous processing while reading), which turned out to
-be slower. Very neat idea, though!
+once (even with unknown int lengths): [details](http://0x80.pl/articles/simd-parsing-int-sequences.html). Unfortunately,
+as cool as that idea was, it ended up being slower (maybe because we did it by reading all the data at once and then
+parsing with SIMD, instead of still doing our chunked parsing?)
 
-In conclusion, this was a super fun challenge. It was surprising that the difficulty lied completely outside of the
-problem we had to solve, but was very interesting and we learned quite a bit. It's great that we start from 3 lines
-of Python and end up with a trampoline Python that just launches a C++ hard-coded HTTP server with raw sockets that
-works hard to extract ints out of JSON continuously with a state machine, does a tiny bit of work with them (what
-we're really supposed to solve), and outputs back a string as fast as possible, all for an extra `24.92 pts` on the
-scoreboard.
+All these ideas ended us with a final score of `224.92` points (`80ms` to solve all challenges), and first place in
+the registration challenge. This was a super fun challenge. It was surprising that the difficulty lied completely
+outside of the problem we had to solve, but was still very interesting and we learned quite a bit.
+
+It's great that we start from 3 lines of Python (200 pts) and end up with a trampoline Python that just launches a C++
+hard-coded HTTP server with raw sockets that works hard to extract ints out of JSON continuously with a state machine,
+does a tiny bit of work with them (what we're really supposed to solve), and outputs back a string as fast as possible,
+all for an extra `24.92 pts` on the scoreboard.
 
 # Development
 
