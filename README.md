@@ -157,17 +157,25 @@ Funnily enough, at some point a member of the `PinaAplle` team reached out and a
 which we replied `... Python, you?`, to which they replied `... Python`, and we both knew exactly what we meant by that. :)
 
 From there, the fact that we had to read/write more than a megabyte of data for some challenges
-(e.g. `2*100k ints for queries` with a lot of separators) meant that it would probably be worth reading the input in chunks,
-making use of a [state machine](http://www.colm.net/open-source/ragel/) to process a chunk at a time while the data was still
-in-flight.
+(e.g. `2*100k ints for queries` with a lot of separators) meant that we would need more than one socket read so it
+would probably be worth trying to process the input by chunks so that while we parse, more data can be buferred by the
+kernel. The usual approache for this is a state machine.
 
-Here's what the state machine looked like:
+On our first attempt we had a hand crafted switch-based implementation, but that turned out to be pretty bad in terms
+of branch prediction and ended up being not as fast as we hoped. After a few iterations on it, we scraped it and ended up
+using [Ragel](http://www.colm.net/open-source/ragel/) to generate a goto-based implementation with the challenge JSON
+absumptions backed in which, this time, performed really well with branch prediction.
 
-![State Machine diagram](./python/cson.svg)
+Here's what the challenge parser state machine ended up looking like:
+
+![Challenge State Machine diagram](./python/cson.svg)
 
 TODO(will): numbers.h
 
 TODO(will): analysis of cache hits/misses
+
+Finally, as a last effort, we also changed the HTTP parsing to an other Ragel state machine. That way, the entire request
+for the smaller challenges can be received in one single socket read call.
 
 One very cool idea that we [read about](https://kholdstare.github.io/technical/2020/05/26/faster-integer-parsing.html)
 to quickly parse the data to ints (one of our bigger bottlenecks), was the use of SIMD to parse multiple characters at
@@ -182,9 +190,9 @@ the registration challenge. This was a super fun challenge. It was surprising th
 outside of the problem we had to solve, but was still very interesting and we learned quite a bit.
 
 It's great that we start from 3 lines of Python (200 pts) and end up with a trampoline Python that just launches a C++
-hard-coded HTTP server with raw sockets that works hard to extract ints out of JSON continuously with a state machine,
-does a tiny bit of work with them (what we're really supposed to solve), and outputs back a string as fast as possible,
-all for an extra `24.92 pts` on the scoreboard:
+hard-coded HTTP server with sockets that works hard to extract ints out of JSON continuously with a state machine, does
+a tiny bit of work with them (what we're really supposed to solve), and outputs back a string as fast as possible, all
+for an extra `24.92 pts` on the scoreboard:
 
 ![Oh how far we've come](https://media.giphy.com/media/l0IylOPCNkiqOgMyA/giphy.gif)
 
