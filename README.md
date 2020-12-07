@@ -161,15 +161,19 @@ So we wrote a very hard-coded HTTP server filled with assumptions to speed thing
 Funnily enough, at some point a member of the `PinaAplle` team reached out and asked us what language we were using, to
 which we replied `... Python, you?`, to which they replied `... Python`, and we both knew exactly what we meant by that. :)
 
+We noticed that the testing harness was capable of requesting all the challenges through a "keep-alive" HTTP connection,
+so we changed our implementation just enough to support that and save just a tiny bit on the TCP overhead.
+
 From there, the fact that we had to read/write more than a megabyte of data for some challenges
-(e.g. `2*100k ints for queries` with a lot of separators) meant that we would need more than one socket read so it
-would probably be worth trying to process the input by chunks so that while we parse, more data can be buferred by the
-kernel. The usual approache for this is a state machine.
+(e.g. `2*100k ints for queries` with a lot of separators) meant that we would need more than one socket read, so it
+would probably be worth trying to process the input by chunks so that while we parse, more data can be buffered by the
+kernel. The usual approache for such a parser is a state machine.
 
 On our first attempt we had a hand crafted switch-based implementation, but that turned out to be pretty bad in terms
 of branch prediction and ended up being not as fast as we hoped. After a few iterations on it, we scraped it and ended up
 using [Ragel](http://www.colm.net/open-source/ragel/) to generate a goto-based implementation with the challenge JSON
-assumptions backed in which, this time, performed really well with branch prediction.
+assumptions backed in which, this time, performed really well on the CPU due to the close relationship between the
+current state and the instruction pointer.
 
 Here's what the final challenge parser state machine looks like:
 
@@ -180,10 +184,15 @@ experimented with 4-digits instead in an attempt to mostly remove the need for d
 static array with all the first 10000 number digits encoded as `uint32` values. Numbers with less than 4 digits were
 left padded with spaces since JSON allows whitespace between elements, but not leading zeros.
 
-TODO(will): cache hits analysis
+Our first hypothesis would be that such a large array would perform really bad with the CPU caches, but we thought it
+was worth trying anyway. After a lot of `cachegrind` iterations it seemed that the output values for a single challenge
+result were generally within a narrow enough range to mostly hit either the L1 or, at worst, the L2 cache. Also having
+the code be nearly branch-less made instruction prefetching always be on point and moving 4 digits at a time both seemed
+to, overall, compensate for the extra fetch time when the L1 or the L2 cache would miss.
 
-Finally, as a last effort, we also changed the HTTP parsing to another Ragel state machine with yet even more backed in
-assumptions. That way, the entire request for the smaller challenges can be received in one single socket read call.
+Finally, as a last effort, we also changed the HTTP parsing to another Ragel state machine with yet more backed in
+assumptions. That way, the entire request for the smaller challenges could be received in one single socket read call.
+This seemed to give us a more consistent scoring result, but didn't really appear to help with making it faster.
 
 One very cool idea that we [read about](https://kholdstare.github.io/technical/2020/05/26/faster-integer-parsing.html)
 to quickly parse the data to ints (one of our bigger bottlenecks), was the use of SIMD to parse multiple characters at
