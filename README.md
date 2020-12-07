@@ -38,6 +38,7 @@ when the answer is right. Thus, the theoretical maximum (assuming no network lat
 So, when we say that we're on the leaderboard at 224.92 pts, it means that it took us 80ms total to answer the 75 challenges.
 
 ## 3-Line Python 200pts Solution
+
 The infrastructure supports 5 languages, each with a skeleton implementation that takes care of the HTTP server setup and JSON parsing:
 
 - Python
@@ -84,6 +85,7 @@ So we added print statements to our program to output each challenge on the serv
 multiple times and reports the median speed (see [`benchmark`](./benchmark)) for all to estimate what score we'd get.
 
 Additionally, we found out here that the structure of the 75 challenges is very regular:
+
 ```
 Challenges:
 1x   track size 10,   10   queries
@@ -97,6 +99,7 @@ Challenges:
 ```
 
 As an example, our timings/score on those tasks at some point looked like:
+
 ```
 Our local benchmark tool (on an Intel i7-4600U 2.10GHz) shows, for different sizes of problems:
 track 10,    queries 10:     0.92ms  3.00pts
@@ -109,7 +112,9 @@ track 10000, queries 10000:  1.32ms  3.00pts
 So we can see that speeding up the 100k queries use-case is worth it, for example.
 
 ## Python-ish
+
 At this point, iterating over 100k queries and outputing a list of 100k elements in Python isn't free:
+
 ```
 > python3 -m timeit '[x for x in range(100000)]'
 50 loops, best of 5: 5.89 msec per loop
@@ -164,18 +169,21 @@ kernel. The usual approache for this is a state machine.
 On our first attempt we had a hand crafted switch-based implementation, but that turned out to be pretty bad in terms
 of branch prediction and ended up being not as fast as we hoped. After a few iterations on it, we scraped it and ended up
 using [Ragel](http://www.colm.net/open-source/ragel/) to generate a goto-based implementation with the challenge JSON
-absumptions backed in which, this time, performed really well with branch prediction.
+assumptions backed in which, this time, performed really well with branch prediction.
 
-Here's what the challenge parser state machine ended up looking like:
+Here's what the final challenge parser state machine looks like:
 
 ![Challenge State Machine diagram](./python/cson.svg)
 
-TODO(will): numbers.h
+After having tackled the input side, we went on to look at the output side. Expanding on the 2-digit grouping output we
+experimented with 4-digits instead in an attempt to mostly remove the need for divisions and modulus. We generated a
+static array with all the first 10000 number digits encoded as `uint32` values. Numbers with less than 4 digits were
+left padded with spaces since JSON allows whitespace between elements, but not leading zeros.
 
-TODO(will): analysis of cache hits/misses
+TODO(will): cache hits analysis
 
-Finally, as a last effort, we also changed the HTTP parsing to an other Ragel state machine. That way, the entire request
-for the smaller challenges can be received in one single socket read call.
+Finally, as a last effort, we also changed the HTTP parsing to another Ragel state machine with yet even more backed in
+assumptions. That way, the entire request for the smaller challenges can be received in one single socket read call.
 
 One very cool idea that we [read about](https://kholdstare.github.io/technical/2020/05/26/faster-integer-parsing.html)
 to quickly parse the data to ints (one of our bigger bottlenecks), was the use of SIMD to parse multiple characters at
