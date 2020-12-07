@@ -132,22 +132,20 @@
 #include "server.h"
 
 
-int solve(int sockfd, cson_t *cson) {
+int solve(const int sockfd, const cson_t *cson) {
     // Length guess is as follow, 512 extra + (number of queries (aka items / 2) * (8 digits max + comma))
-    size_t guess = 512 + ((cson->items_size / 2) * (8 + 1));
-    char* buf = malloc(guess);
-    if (buf == NULL) {
-        return -1;
-    }
+    static char buf[512 + (ITEMS_MAX * (8 + 1))];
 
+    const int *items = cson->items;
+    const int *track = cson->track;
+    const size_t length = cson->items_size;
+
+    buf[0] = '[';
     char *p = buf + 1;
-    size_t length = cson->items_size;
-    unsigned int *items = cson->items;
-    unsigned int *track = cson->track;
     for (size_t i = 0; i < length; i += 2) {
-        unsigned int dist = track[items[i + 1]] - track[items[i]];
+        const int dist = abs(track[items[i + 1]] - track[items[i]]);
         if (dist > NUMBERS_MAX) {
-            unsigned int div = dist / (NUMBERS_MAX + 1), mod = dist % (NUMBERS_MAX + 1);
+            const int div = dist / (NUMBERS_MAX + 1), mod = dist % (NUMBERS_MAX + 1);
             *((uint32_t*) p) = NUMBERS[div];
             p += 4;
             // 0x20 is a space ' ', so +0x10 is 0x30 which is zero '0'
@@ -159,15 +157,12 @@ int solve(int sockfd, cson_t *cson) {
         }
         *(p++) = ',';
     }
-    buf[0] = '[';
     p[-1] = ']';
 
     if (send_response(sockfd, buf, p - buf) < 0) {
-        free(buf);
         return -1;
     }
 
-    free(buf);
     return 0;
 }
 
@@ -183,7 +178,7 @@ void launch(const int port, const int exit_early) {
     printf("Listening on port %d\n", port);
 
     do {
-        int sockfd = accept_client(servfd);
+        const int sockfd = accept_client(servfd);
         if (sockfd < 0) {
             if (errno == EINTR) {
                 break;
@@ -208,7 +203,7 @@ void launch(const int port, const int exit_early) {
     close(servfd);
 }
 
-int main(int argc, char **argv) {
+int main(const int argc, const char **argv) {
     launch(27178, 1);
     return 0;
 }

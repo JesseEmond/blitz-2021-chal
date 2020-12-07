@@ -8,20 +8,8 @@
         value += fc - '0';
     }
 
-    action item_start {
-        item_start = value;
-        value = 0;
-    }
-
-    action item_end {
-        // The start < end check is done here because of cache locality
-        if (item_start > value) {
-            items[items_size++] = value;
-            items[items_size++] = item_start;
-        } else {
-            items[items_size++] = item_start;
-            items[items_size++] = value;
-        }
+    action add_item {
+        items[items_size++] = value;
         value = 0;
     }
 
@@ -41,7 +29,7 @@
     integer = digit+ $push_digit;
 
     items_key = "\"items\":";
-    items_item = arr_s integer %item_start sep integer %item_end arr_e;
+    items_item = arr_s integer %add_item sep integer %add_item arr_e;
     items = arr_s items_item ( sep items_item )* arr_e;
 
     track_key = "\"track\":";
@@ -62,7 +50,6 @@ void cson_init(cson_t *cson) {
 
     cson->_cs = cs;
     cson->_value = 0;
-    cson->_item_start = 0;
     cson->_track_sum = 0;
 
     cson->items_size = 0;
@@ -72,13 +59,12 @@ void cson_init(cson_t *cson) {
 
 char *cson_parse(cson_t *cson, const char *start, const char *end) {
     int cs = cson->_cs;
-    unsigned int value = cson->_value;
-    unsigned int item_start = cson->_item_start;
-    unsigned int track_sum = cson->_track_sum;
+    int value = cson->_value;
+    int track_sum = cson->_track_sum;
 
-    unsigned int *items = cson->items;
+    int *items = cson->items;
     size_t items_size = cson->items_size;
-    unsigned int *track = cson->track;
+    int *track = cson->track;
     size_t track_size = cson->track_size;
 
     char *p = (char*) start;
@@ -87,7 +73,6 @@ char *cson_parse(cson_t *cson, const char *start, const char *end) {
 
     cson->_cs = cs;
     cson->_value = value;
-    cson->_item_start = item_start;
     cson->_track_sum = track_sum;
 
     cson->items_size = items_size;

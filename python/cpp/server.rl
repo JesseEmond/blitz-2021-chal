@@ -14,7 +14,6 @@
 
     action handle_get {
         send_pong(sockfd);
-        free(buffer);
         return -1;
     }
 
@@ -122,11 +121,7 @@ void send_bad_request(const int sockfd) {
 }
 
 int recv_challenge(const int sockfd, cson_t *cson) {
-    const size_t BUFFER_SIZE = 2 * 1024 * 1024; // 2MB
-    char *buffer = malloc(BUFFER_SIZE);
-    if (buffer == NULL) {
-        return -1;
-    }
+    static char buffer[2 * 1024 * 1024]; // 2MB
 
     int cs = 0;
 
@@ -134,7 +129,7 @@ int recv_challenge(const int sockfd, cson_t *cson) {
 
     ssize_t n = 0;
     size_t bodylen = 0;
-    size_t space = BUFFER_SIZE;
+    size_t space = sizeof(buffer);
     char *p = buffer, *pe = buffer;
     while (cs < %%{ write first_final; }%% && space > 0 && (n = recv(sockfd, pe, space, 0)) > 0) {
         quickack(sockfd);
@@ -143,9 +138,8 @@ int recv_challenge(const int sockfd, cson_t *cson) {
 
         %% write exec;
     }
-    if (cs < %%{ write first_final; }%% || bodylen + (p - buffer) > BUFFER_SIZE) {
+    if (cs < %%{ write first_final; }%% || bodylen + (p - buffer) > sizeof(buffer)) {
         send_bad_request(sockfd);
-        free(buffer);
         return -1;
     }
 
@@ -157,7 +151,6 @@ int recv_challenge(const int sockfd, cson_t *cson) {
     while (bodylen > 0) {
         if ((n = recv(sockfd, pe, bodylen, 0)) < 0) {
             send_bad_request(sockfd);
-            free(buffer);
             return -1;
         }
         quickack(sockfd);
@@ -165,13 +158,11 @@ int recv_challenge(const int sockfd, cson_t *cson) {
         p = cson_parse(cson, p, (pe += n));
     }
 
-    free(buffer);
-
     return 0;
 }
 
 int send_response(const int sockfd, const char *body, const size_t len) {
-    char header[512];
+    static char header[512];
     ssize_t n = sprintf(header, "HTTP/1.1 200 OK\r\nConnection: keep-alive\r\nContent-Type: application/json\r\nContent-Length: %ld\r\n\r\n", len);
     if (n < 0) {
         return -1;

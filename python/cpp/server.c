@@ -16,7 +16,7 @@
 static const int http_request_start = 1;
 
 
-#line 41 "server.rl"
+#line 40 "server.rl"
 
 
 int http_server(const int port) {
@@ -101,25 +101,21 @@ void send_bad_request(const int sockfd) {
 }
 
 int recv_challenge(const int sockfd, cson_t *cson) {
-    const size_t BUFFER_SIZE = 2 * 1024 * 1024; // 2MB
-    char *buffer = malloc(BUFFER_SIZE);
-    if (buffer == NULL) {
-        return -1;
-    }
+    static char buffer[2 * 1024 * 1024]; // 2MB
 
     int cs = 0;
 
     
-#line 114 "server.c"
+#line 110 "server.c"
 	{
 	cs = http_request_start;
 	}
 
-#line 134 "server.rl"
+#line 129 "server.rl"
 
     ssize_t n = 0;
     size_t bodylen = 0;
-    size_t space = BUFFER_SIZE;
+    size_t space = sizeof(buffer);
     char *p = buffer, *pe = buffer;
     while (cs < 33 && space > 0 && (n = recv(sockfd, pe, space, 0)) > 0) {
         quickack(sockfd);
@@ -127,7 +123,7 @@ int recv_challenge(const int sockfd, cson_t *cson) {
         pe += n;
 
         
-#line 131 "server.c"
+#line 127 "server.c"
 	{
 	if ( p == pe )
 		goto _test_eof;
@@ -167,7 +163,6 @@ tr5:
 #line 15 "server.rl"
 	{
         send_pong(sockfd);
-        free(buffer);
         return -1;
     }
 	goto st5;
@@ -175,7 +170,7 @@ st5:
 	if ( ++p == pe )
 		goto _test_eof5;
 case 5:
-#line 179 "server.c"
+#line 174 "server.c"
 	if ( 32 <= (*p) && (*p) <= 126 )
 		goto st6;
 	goto st0;
@@ -239,14 +234,14 @@ case 12:
 		goto tr14;
 	goto st0;
 tr14:
-#line 38 "server.rl"
+#line 37 "server.rl"
 	{ {p++; cs = 33; goto _out;} }
 	goto st33;
 st33:
 	if ( ++p == pe )
 		goto _test_eof33;
 case 33:
-#line 250 "server.c"
+#line 245 "server.c"
 	goto st0;
 st13:
 	if ( ++p == pe )
@@ -420,7 +415,7 @@ case 27:
 		goto tr29;
 	goto st0;
 tr29:
-#line 21 "server.rl"
+#line 20 "server.rl"
 	{
         bodylen *= 10;
         bodylen += (*p) - '0';
@@ -430,7 +425,7 @@ st28:
 	if ( ++p == pe )
 		goto _test_eof28;
 case 28:
-#line 434 "server.c"
+#line 429 "server.c"
 	if ( (*p) == 13 )
 		goto st10;
 	if ( (*p) < 48 ) {
@@ -508,11 +503,10 @@ case 32:
 	_out: {}
 	}
 
-#line 145 "server.rl"
+#line 140 "server.rl"
     }
-    if (cs < 33 || bodylen + (p - buffer) > BUFFER_SIZE) {
+    if (cs < 33 || bodylen + (p - buffer) > sizeof(buffer)) {
         send_bad_request(sockfd);
-        free(buffer);
         return -1;
     }
 
@@ -524,7 +518,6 @@ case 32:
     while (bodylen > 0) {
         if ((n = recv(sockfd, pe, bodylen, 0)) < 0) {
             send_bad_request(sockfd);
-            free(buffer);
             return -1;
         }
         quickack(sockfd);
@@ -532,13 +525,11 @@ case 32:
         p = cson_parse(cson, p, (pe += n));
     }
 
-    free(buffer);
-
     return 0;
 }
 
 int send_response(const int sockfd, const char *body, const size_t len) {
-    char header[512];
+    static char header[512];
     ssize_t n = sprintf(header, "HTTP/1.1 200 OK\r\nConnection: keep-alive\r\nContent-Type: application/json\r\nContent-Length: %ld\r\n\r\n", len);
     if (n < 0) {
         return -1;

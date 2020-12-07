@@ -13,13 +13,12 @@ extern "C" {
 
 typedef struct cson {
     int _cs;
-    unsigned int _value;
-    unsigned int _item_start;
-    unsigned int _track_sum;
+    int _value;
+    int _track_sum;
 
-    unsigned int items[ITEMS_MAX * 2];
+    int items[ITEMS_MAX * 2];
     size_t items_size;
-    unsigned int track[TRACK_MAX + 1];
+    int track[TRACK_MAX + 1];
     size_t track_size;
 } cson_t;
 
